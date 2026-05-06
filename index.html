@@ -76,7 +76,7 @@
                         </optgroup>
                     </select>
                 </div>
-                <p class="text-[10px] font-mono text-gray-400 mt-2">A* PATHFINDING & S.D.E v13 (Absolute Precision)</p>
+                <p class="text-[10px] font-mono text-gray-400 mt-2">A* PATHFINDING & S.D.E v14 (Valley Detector)</p>
             </div>
             <button id="close-sidebar-btn" class="md:hidden text-gray-400 hover:text-white pt-1 ml-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -92,7 +92,6 @@
 
             <div id="controls-module" class="opacity-50 pointer-events-none transition-opacity space-y-5">
                 
-                <!-- BUSCA RESTAURADA -->
                 <section class="bg-black/40 p-3 rounded border border-gray-800">
                     <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Localizar / Deed / Grid</h2>
                     <div class="relative flex gap-1">
@@ -120,10 +119,9 @@
                     </div>
                 </section>
 
-                <!-- SCANNER DE TESOURO -->
                 <section class="bg-black/40 p-3 rounded border border-[#00ffcc]/30 shadow-[0_0_15px_rgba(0,255,204,0.05)] flex flex-col" id="sde-panel">
-                    <h2 class="text-xs font-mono text-[#00ffcc] mb-1 uppercase">> S.D.E v13 (Scanner Avançado)</h2>
-                    <p class="text-[9px] font-mono text-gray-500 mb-2 leading-tight">Cole a imagem. O scanner mudará para Topo e fará o alinhamento absoluto.</p>
+                    <h2 class="text-xs font-mono text-[#00ffcc] mb-1 uppercase">> S.D.E v14 (Offset Fixado)</h2>
+                    <p class="text-[9px] font-mono text-gray-500 mb-2 leading-tight">Cole o mapa. O scanner agora lê linhas topográficas e centraliza perfeitamente a imagem global.</p>
                     
                     <label id="paste-area" class="paste-zone block w-full h-24 rounded cursor-pointer flex flex-col items-center justify-center relative group mb-2 overflow-hidden">
                         <input type="file" id="upload-fragment" accept="image/png, image/jpeg, image/webp" class="hidden">
@@ -142,7 +140,6 @@
                         📍 Projetar Manualmente
                     </button>
 
-                    <!-- CONTROLES MANUAIS DO OVERLAY -->
                     <div id="overlay-controls" class="mt-2 bg-[#00ffcc]/10 p-2 rounded border border-[#00ffcc]/30 hidden transition-all">
                         <div class="mb-2">
                             <label class="text-[10px] font-mono text-[#00ffcc] flex justify-between mb-1 uppercase font-bold">
@@ -280,7 +277,7 @@
             isEmpty() { return this.heap.length === 0; }
         }
 
-        // --- 2. S.D.E V13 (ABSOLUTE PIXEL MATCHING) ---
+        // --- 2. S.D.E V14 (VALLEY DETECTOR & CROP FIX) ---
         class VisionEngine {
             static fileToImage(file) {
                 return new Promise((resolve) => {
@@ -290,14 +287,12 @@
                 });
             }
 
-            // Localiza o "X" na imagem original com alta precisão
             static locateBlackX(imgData, width, height) {
                 let sumX = 0, sumY = 0, count = 0;
                 for (let y = 0; y < height; y++) {
                     for (let x = 0; x < width; x++) {
                         const i = (y * width + x) * 4;
-                        // Cores muito escuras representam o X pintado no pergaminho
-                        if (imgData[i] < 40 && imgData[i+1] < 40 && imgData[i+2] < 40) {
+                        if (imgData[i] < 35 && imgData[i+1] < 35 && imgData[i+2] < 35) {
                             sumX += x; sumY += y; count++;
                         }
                     }
@@ -305,49 +300,66 @@
                 return count > 5 ? { x: Math.round(sumX / count), y: Math.round(sumY / count) } : { x: Math.floor(width/2), y: Math.floor(height/2) };
             }
 
-            // Extrai apenas as "Features" (linhas topográficas, estradas e praias)
-            // Usando limiar de cor para ignorar o papel amarelo e o mar/grama
+            // V14: Identifica vales escuros (linhas de topografia e estradas) ignorando a cor de fundo
             static extractFeatures(canvasSource, isFragment, anchorX = 0, anchorY = 0) {
                 const width = canvasSource.width;
                 const height = canvasSource.height;
                 const ctx = canvasSource.getContext('2d', { willReadFrequently: true });
-                const rawData = ctx.getImageData(0, 0, width, height).data;
-                const features = new Float32Array(width * height);
                 
-                // Margem para ignorar a UI no mapa do tesouro (15%)
-                const marginX = isFragment ? Math.floor(width * 0.15) : 0;
-                const marginY = isFragment ? Math.floor(height * 0.15) : 0;
-                const maskRadius = isFragment ? Math.max(20, width * 0.05) : 0; // Raio ao redor do X
+                // Variáveis para rastrear o corte (MUITO IMPORTANTE PARA ALINHAR DEPOIS)
+                let cropX = 0, cropY = 0, cropW = width, cropH = height;
+                let targetOrig = { x: width/2, y: height/2 };
 
-                for (let y = 0; y < height; y++) {
-                    for (let x = 0; x < width; x++) {
-                        const idx = y * width + x;
+                if (isFragment) {
+                    cropX = Math.floor(width * 0.15); cropY = Math.floor(height * 0.15);
+                    cropW = Math.floor(width * 0.70); cropH = Math.floor(height * 0.70);
+                    targetOrig = this.locateBlackX(ctx.getImageData(0,0,width,height).data, width, height);
+                }
+
+                const rawImgData = ctx.getImageData(cropX, cropY, cropW, cropH);
+                const data = rawImgData.data;
+                const grayscale = new Float32Array(cropW * cropH);
+                const features = new Float32Array(cropW * cropH);
+                
+                for (let i = 0; i < data.length; i += 4) {
+                    grayscale[i/4] = (data[i]*0.299 + data[i+1]*0.587 + data[i+2]*0.114);
+                }
+
+                const maskRadius = isFragment ? Math.max(25, cropW * 0.08) : 0;
+                const step = 2; // Distância do vizinho para comparar (Cria espessura nas linhas)
+
+                for (let y = step; y < cropH - step; y++) {
+                    for (let x = step; x < cropW - step; x++) {
+                        const idx = y * cropW + x;
                         
                         if (isFragment) {
-                            // Ignora as bordas (UI)
-                            if (x < marginX || x > width - marginX || y < marginY || y > height - marginY) {
-                                features[idx] = -1; continue;
-                            }
-                            // Ignora os pixels ao redor do X (para o X não virar "feature" e estragar o alinhamento)
-                            if (Math.hypot(x - anchorX, y - anchorY) < maskRadius) {
-                                features[idx] = -1; continue;
+                            const mapX = cropX + x; const mapY = cropY + y;
+                            if (Math.hypot(mapX - targetOrig.x, mapY - targetOrig.y) < maskRadius) {
+                                features[idx] = -1; continue; 
                             }
                         }
 
-                        const i = idx * 4;
-                        const r = rawData[i], g = rawData[i+1], b = rawData[i+2];
-                        const intensity = (r + g + b) / 3;
+                        const center = grayscale[idx];
+                        const surround = (
+                            grayscale[idx - step] + 
+                            grayscale[idx + step] + 
+                            grayscale[idx - step * cropW] + 
+                            grayscale[idx + step * cropW]
+                        ) / 4;
 
-                        // No Wurm Topo, linhas e estradas são escuras (intensidade menor que 110)
-                        if (intensity < 110) {
-                            features[idx] = 1;
+                        // Se o pixel atual for notavelmente mais escuro que os vizinhos = é uma linha/estrada
+                        if (center < surround - 8) {
+                            features[idx] = 1; 
                         } else {
                             features[idx] = 0;
                         }
                     }
                 }
 
-                return { data: features, width, height };
+                return { 
+                    data: features, width: cropW, height: cropH, 
+                    cropX: cropX, cropY: cropY // Salva as coordenadas do corte para compensar depois!
+                };
             }
 
             static resizeCanvas(originalCanvas, scale) {
@@ -367,17 +379,17 @@
             findMatchInStrictViewport(strictViewportCanvas, fragCanvas, originalAnchorX, originalAnchorY, onProgress) {
                 return new Promise((resolve) => {
                     this.isScanning = true;
+                    logger.sdeLog(`SDE V14: Lendo malha topográfica e rodovias...`);
                     
                     const haystack = VisionEngine.extractFeatures(strictViewportCanvas, false);
                     
                     const COARSE_SCALES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5];
                     const COARSE_STRIDE = 4;
                     
-                    let bestCoarse = { conf: 0, x: 0, y: 0, scale: 0 };
+                    let bestCoarse = { conf: 0, x: 0, y: 0, scale: 0, needle: null };
                     let scaleIdx = 0;
                     let sy = 0;
                     let currentNeedle = null;
-                    let currentAnchorX = 0, currentAnchorY = 0;
 
                     const setupCoarseScale = () => {
                         while (scaleIdx < COARSE_SCALES.length) {
@@ -385,10 +397,9 @@
                             const resizedFrag = VisionEngine.resizeCanvas(fragCanvas, s);
                             if(resizedFrag.width >= haystack.width || resizedFrag.height >= haystack.height) { scaleIdx++; continue; }
                             
-                            currentAnchorX = originalAnchorX * s;
-                            currentAnchorY = originalAnchorY * s;
-                            
-                            currentNeedle = VisionEngine.extractFeatures(resizedFrag, true, currentAnchorX, currentAnchorY);
+                            const cAnchX = originalAnchorX * s;
+                            const cAnchY = originalAnchorY * s;
+                            currentNeedle = VisionEngine.extractFeatures(resizedFrag, true, cAnchX, cAnchY);
                             sy = 0; 
                             return true;
                         }
@@ -396,7 +407,7 @@
                     };
 
                     if(!setupCoarseScale()) {
-                        logger.sdeLog("ERRO: Mapa base está com muito zoom. Dê zoom-out.", 'text-red-500');
+                        logger.sdeLog("ERRO: O mapa global precisa estar mais afastado (Zoom out).", 'text-red-500');
                         this.isScanning = false; resolve(null); return;
                     }
 
@@ -408,20 +419,31 @@
 
                         for (; sy < endY; sy += COARSE_STRIDE) {
                             for (let sx = 0; sx <= maxSx; sx += COARSE_STRIDE) {
-                                let matchCount = 0; let validPixels = 0;
+                                let matchCount = 0; 
+                                let needlePts = 0;
+                                let haystackPenalty = 0;
+
                                 for (let ty = 0; ty < currentNeedle.height; ty += 2) {
                                     for (let tx = 0; tx < currentNeedle.width; tx += 2) {
                                         const nVal = currentNeedle.data[ty * currentNeedle.width + tx];
                                         if (nVal === -1) continue; 
+                                        
+                                        const hVal = haystack.data[((sy + ty) * haystack.width) + (sx + tx)];
+                                        
                                         if (nVal === 1) { 
-                                            validPixels++;
-                                            if (haystack.data[((sy + ty) * haystack.width) + (sx + tx)] === 1) matchCount++; 
+                                            needlePts++;
+                                            if (hVal === 1) matchCount++; 
+                                        } else if (nVal === 0 && hVal === 1) {
+                                            haystackPenalty++; // Punição por lixo embaixo do mapa onde deveria estar limpo
                                         }
                                     }
                                 }
-                                const score = validPixels > 0 ? (matchCount / validPixels) : 0;
+                                
+                                // Score com punição de falsos positivos
+                                const score = needlePts > 0 ? (matchCount - (haystackPenalty * 0.15)) / needlePts : 0;
+                                
                                 if (score > bestCoarse.conf) {
-                                    bestCoarse = { conf: score, x: sx, y: sy, scale: COARSE_SCALES[scaleIdx] };
+                                    bestCoarse = { conf: score, x: sx, y: sy, scale: COARSE_SCALES[scaleIdx], needle: currentNeedle };
                                 }
                             }
                         }
@@ -434,8 +456,8 @@
                     };
 
                     const startFinePass = () => {
-                        if (bestCoarse.conf < 0.10) {
-                            logger.sdeLog(`Assinatura não identificada na tela atual. Tente Projeção Manual.`, 'text-red-400');
+                        if (bestCoarse.conf < 0.05) { // Threshold baixado porque o novo score é mais rigoroso (penalizado)
+                            logger.sdeLog(`Local não encontrado nesta tela. Use o Botão Manual ou mova o mapa.`, 'text-red-400');
                             this.isScanning = false; resolve(null); return;
                         }
                         
@@ -447,10 +469,11 @@
                         const searchRadius = 15;
                         
                         const processFine = () => {
-                            if (fineIdx >= FINE_SCALES.length) { finalizeScan(bestFine); return; }
+                            if (fineIdx >= FINE_SCALES.length) { finalizeScan(bestFine || bestCoarse); return; }
 
                             const s = FINE_SCALES[fineIdx];
                             const resizedFrag = VisionEngine.resizeCanvas(fragCanvas, s);
+                            
                             if(resizedFrag.width < haystack.width && resizedFrag.height < haystack.height) {
                                 const cAnchX = originalAnchorX * s; const cAnchY = originalAnchorY * s;
                                 const needle = VisionEngine.extractFeatures(resizedFrag, true, cAnchX, cAnchY);
@@ -462,20 +485,26 @@
 
                                 for (let fy = startY; fy <= endY; fy++) {
                                     for (let fx = startX; fx <= endX; fx++) {
-                                        let matchCount = 0; let validPixels = 0;
+                                        let matchCount = 0; let needlePts = 0; let haystackPenalty = 0;
+                                        
                                         for (let ty = 0; ty < needle.height; ty++) {
                                             for (let tx = 0; tx < needle.width; tx++) {
                                                 const nVal = needle.data[ty * needle.width + tx];
                                                 if (nVal === -1) continue; 
+                                                const hVal = haystack.data[((fy + ty) * haystack.width) + (fx + tx)];
+                                                
                                                 if (nVal === 1) { 
-                                                    validPixels++;
-                                                    if (haystack.data[((fy + ty) * haystack.width) + (fx + tx)] === 1) matchCount++; 
+                                                    needlePts++;
+                                                    if (hVal === 1) matchCount++; 
+                                                } else if (nVal === 0 && hVal === 1) {
+                                                    haystackPenalty++;
                                                 }
                                             }
                                         }
-                                        const score = validPixels > 0 ? (matchCount / validPixels) : 0;
+                                        const score = needlePts > 0 ? (matchCount - (haystackPenalty * 0.15)) / needlePts : 0;
+                                        
                                         if (!bestFine || score > bestFine.conf) {
-                                            bestFine = { conf: score, x: fx, y: fy, scale: s };
+                                            bestFine = { conf: score, x: fx, y: fy, scale: s, needle: needle };
                                         }
                                     }
                                 }
@@ -493,15 +522,21 @@
 
                     const finalizeScan = (result) => {
                         this.isScanning = false;
-                        if (!result || result.conf < 0.12) { 
-                            logger.sdeLog(`Alinhamento final fraco (${(result ? result.conf*100 : 0).toFixed(1)}%). Use Projeção Manual.`, 'text-red-400');
+                        if (!result || result.conf < 0.08) { 
+                            logger.sdeLog(`Baixa confiança de alinhamento. Tente Projeção Manual.`, 'text-red-400');
                             resolve(null); return; 
                         }
                         
-                        logger.sdeLog(`ALVO TRAVADO COM SUCESSO! (Match: ${(result.conf*100).toFixed(1)}%)`, 'text-[#00ff66]');
+                        logger.sdeLog(`ALVO ENCONTRADO! Compensando margens de corte...`, 'text-[#00ff66]');
                         
-                        // Retorna apenas a coordenada x,y do Canto Superior Esquerdo e a escala
-                        resolve({ x: result.x, y: result.y, scale: result.scale });
+                        // V14 CORREÇÃO CRÍTICA DO BUG DE OFFSET:
+                        // O scanner achou a posição (result.x, result.y) do mapa RECORTADO.
+                        // Para desenhar a imagem INTEIRA perfeitamente, precisamos recuar a posição
+                        // subtraindo o tanto que foi cortado.
+                        const fullImageTopLeftX = result.x - result.needle.cropX;
+                        const fullImageTopLeftY = result.y - result.needle.cropY;
+
+                        resolve({ x: fullImageTopLeftX, y: fullImageTopLeftY, scale: result.scale });
                     };
                     
                     requestAnimationFrame(processCoarse);
@@ -665,7 +700,7 @@
                 return { canvas: tempCanvas, globalStartX: startX, globalStartY: startY };
             }
 
-            // V13: Matemática pura. Se o scan disse que a imagem começa no X,Y global, é lá que ela é desenhada.
+            // V14: Posição absoluta da borda superior esquerda já compensada pelo corte
             setOverlay(image, globalX, globalY, scale) {
                 this.overlayImage = image;
                 this.overlayScale = scale;
@@ -1057,7 +1092,6 @@
                     ctx.restore();
                 }
 
-                // V13: Função RESTAURADA e Aprimorada para desenhar nomes de vias
                 const drawSimplePath = (paths, color, w, dashed = false, drawNames = false) => {
                     ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = w / this.camera.scale;
                     if(dashed) ctx.setLineDash([6 / this.camera.scale, 6 / this.camera.scale]);
@@ -1066,12 +1100,10 @@
                         ctx.moveTo(p.path[0][0], p.path[0][1]); 
                         for(let j=1; j<p.path.length; j++) ctx.lineTo(p.path[j][0], p.path[j][1]); 
                         
-                        // Desenha os nomes das pontes e túneis
                         if (drawNames && p.name && this.camera.scale > 0.6 && p.path.length >= 2) {
                             const midIdx = Math.floor(p.path.length / 2);
-                            const p1 = p.path[midIdx - 1]; const p2 = p.path[midIdx];
+                            const p1 = p.path[Math.max(0, midIdx - 1)]; const p2 = p.path[Math.min(p.path.length-1, midIdx)];
                             const midX = (p1[0] + p2[0]) / 2; const midY = (p1[1] + p2[1]) / 2;
-                            // Salva estado para desenhar o texto sem ser afetado pela rota em andamento
                             ctx.save();
                             this.drawText(ctx, p.name, midX, midY, color, Math.max(12, 16 / this.camera.scale), true);
                             ctx.restore();
@@ -1200,12 +1232,23 @@
             const overlayControls = document.getElementById('overlay-controls');
             const scaleSlider = document.getElementById('overlay-scale-slider');
 
+            const activateTopoMode = () => {
+                const topoRadio = document.getElementById('radio-topo');
+                if (topoRadio && !topoRadio.checked) {
+                    topoRadio.checked = true;
+                    mapEngine.updateConfig('root', 'shader', 'topo');
+                    logger.sdeLog(`Sincronizando topografia...`, 'text-[#00f3ff]');
+                    return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                }
+                return Promise.resolve();
+            };
+
             const loadTreasureMap = async (file) => {
                 if (!file || !file.type.match('image.*')) return;
                 try {
                     const c = document.getElementById('sde-console');
                     if(c) c.innerHTML = '';
-                    logger.sdeLog(`SDE V13 - MAPA CARREGADO. (Busca e Nomes restaurados!)`);
+                    logger.sdeLog(`SDE V14 - MAPA CARREGADO.`);
                     const img = await VisionEngine.fileToImage(file);
                     
                     treasureCanvas = document.createElement('canvas');
@@ -1213,7 +1256,6 @@
                     const tCtx = treasureCanvas.getContext('2d');
                     tCtx.drawImage(img, 0, 0);
 
-                    // Descobre onde o X preto está desenhado na imagem inteira original
                     const anchorPos = VisionEngine.locateBlackX(tCtx.getImageData(0,0,img.width,img.height).data, img.width, img.height);
                     originalMapAnchorX = anchorPos.x;
                     originalMapAnchorY = anchorPos.y;
@@ -1269,13 +1311,9 @@
                 mapEngine.scheduleRender();
             });
 
-            btnManual?.addEventListener('click', () => {
+            btnManual?.addEventListener('click', async () => {
                 if (!treasureCanvas) return;
-                const topoRadio = document.getElementById('radio-topo');
-                if (topoRadio && !topoRadio.checked) {
-                    topoRadio.checked = true; mapEngine.updateConfig('root', 'shader', 'topo');
-                }
-
+                await activateTopoMode();
                 mapEngine.spawnManualOverlay(treasureCanvas);
                 
                 if(scaleSlider) scaleSlider.value = 1000; 
@@ -1286,22 +1324,13 @@
                 if (window.innerWidth < 768 && sidebar) sidebar.classList.add('-translate-x-full');
             });
 
-            // V13 - Ciclo de Varredura Absoluto
             btnScan?.addEventListener('click', async () => {
                 if (!treasureCanvas) return;
 
                 btnScan.disabled = true;
                 if(scanProgressBar) scanProgressBar.style.width = "0%";
 
-                // V13: FORÇA O MAPA PARA TOPO ANTES DE ESCANEAR
-                const topoRadio = document.getElementById('radio-topo');
-                if (!topoRadio.checked) {
-                    topoRadio.checked = true;
-                    mapEngine.updateConfig('root', 'shader', 'topo');
-                    logger.sdeLog(`Sincronizando topografia antes do scan...`, 'text-[#00f3ff]');
-                    // Aguarda 2 frames para a canvas renderizar a imagem Topo no fundo
-                    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-                }
+                await activateTopoMode();
 
                 const strictViewportData = mapEngine.getStrictViewportCanvas();
                 if (!strictViewportData) {
@@ -1320,8 +1349,6 @@
                 btnScan.disabled = false;
 
                 if (result) {
-                    // V13: MATEMÁTICA SIMPLES E CORRETA
-                    // O `result.x` é a borda superior esquerda exata onde a imagem escalada encaixou na tela.
                     const finalGlobalX = strictViewportData.globalStartX + result.x;
                     const finalGlobalY = strictViewportData.globalStartY + result.y;
 
@@ -1333,7 +1360,6 @@
                     
                     if(overlayControls) overlayControls.classList.remove('hidden');
 
-                    // Centraliza a câmera no 'X' que achamos
                     const anchorGlobalX = finalGlobalX + (originalMapAnchorX * result.scale);
                     const anchorGlobalY = finalGlobalY + (originalMapAnchorY * result.scale);
                     mapEngine.focusCamera(Math.round(anchorGlobalX), Math.round(anchorGlobalY), true, true);
@@ -1342,7 +1368,6 @@
                 }
             });
 
-            // V13 - AUTOCOMPLETE RESTAURADO (Agora pegando o id="search-input" correto)
             const attachAutocomplete = (inputId, onSelect) => {
                 const input = document.getElementById(inputId);
                 if(!input) return;
