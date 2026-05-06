@@ -2,7 +2,8 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Meta Viewport ajustado para prevenir zoom indesejado ao tocar na tela em celulares -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GAMA HARMONY // Ultimate Tactical Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
@@ -13,15 +14,14 @@
             --cyan: #00f3ff;
             --magenta: #bf00ff;
             --orange: #ffaa00;
-            --panel: rgba(10, 15, 20, 0.9);
+            --panel: rgba(10, 15, 20, 0.95);
         }
         body { background-color: var(--bg-base); color: #e0e0e0; font-family: 'Rajdhani', sans-serif; overflow: hidden; user-select: none; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         
         .cyber-panel {
             background: var(--panel); backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 243, 255, 0.2);
-            box-shadow: 0 0 20px rgba(0,0,0,0.9), inset 0 0 10px rgba(0, 243, 255, 0.05);
+            box-shadow: 0 0 20px rgba(0,0,0,0.9);
         }
         .neon-border-b { border-bottom: 2px solid var(--cyan); }
         .text-glow { text-shadow: 0 0 8px rgba(0, 243, 255, 0.6); }
@@ -30,14 +30,8 @@
         ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); }
         ::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 3px; }
         
-        .scanlines::before {
-            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 50; background-size: 100% 2px, 3px 100%; pointer-events: none;
-        }
-
         input[type="checkbox"], input[type="radio"] { accent-color: var(--cyan); cursor: pointer; }
-        input[type="number"], select, input[type="text"] { background: rgba(0,0,0,0.6); border: 1px solid var(--cyan); color: var(--cyan); outline: none; padding: 4px 8px; width: 100%; font-family: 'JetBrains Mono'; font-size: 12px; }
+        input[type="number"], select, input[type="text"] { background: rgba(0,0,0,0.6); border: 1px solid var(--cyan); color: var(--cyan); outline: none; padding: 4px 8px; width: 100%; font-family: 'JetBrains Mono'; font-size: 14px; }
         select option { background: #0a0f14; color: var(--cyan); }
         
         #tactical-canvas {
@@ -48,12 +42,19 @@
         }
     </style>
 </head>
-<body class="h-screen w-screen flex scanlines">
+<body class="h-screen w-screen flex relative overflow-hidden">
 
-    <aside class="cyber-panel w-80 h-full flex flex-col z-20 absolute left-0 border-r overflow-y-auto">
-        <header class="p-5 neon-border-b bg-black/60 sticky top-0 z-30">
-            <h1 class="text-3xl font-bold text-[#00f3ff] text-glow tracking-widest">GAMA HARMONY</h1>
-            <p class="text-[10px] font-mono text-gray-400 mt-1">A* PATHFINDING ENGINE v8.6</p>
+    <!-- SIDEBAR (Menu Gaveta no Mobile, Fixo no Desktop) -->
+    <aside id="sidebar" class="cyber-panel w-80 h-full flex-shrink-0 flex flex-col z-40 absolute md:relative transform -translate-x-full md:translate-x-0 transition-transform duration-300 border-r border-[#00f3ff]/20 overflow-y-auto">
+        <header class="p-5 neon-border-b bg-black/60 sticky top-0 z-30 flex justify-between items-start">
+            <div>
+                <h1 class="text-3xl font-bold text-[#00f3ff] text-glow tracking-widest">GAMA HARMONY</h1>
+                <p class="text-[10px] font-mono text-gray-400 mt-1">A* PATHFINDING ENGINE v8.7</p>
+            </div>
+            <!-- Botão Fechar Painel (Mobile) -->
+            <button id="close-sidebar-btn" class="md:hidden text-gray-400 hover:text-white pt-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
         </header>
 
         <div class="p-5 space-y-5 flex-1 pb-10">
@@ -67,18 +68,18 @@
                 
                 <section class="bg-black/40 p-3 rounded border border-gray-800">
                     <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Modo Tático</h2>
-                    <div class="flex flex-col gap-2 text-xs">
-                        <label class="flex items-center gap-1"><input type="radio" name="interaction-mode" value="ping" checked> 📡 Radar Ping</label>
-                        <label class="flex items-center gap-1"><input type="radio" name="interaction-mode" value="route-straight" class="accent-[#bf00ff]"> 📏 Rota (Linha Reta)</label>
-                        <label class="flex items-center gap-1"><input type="radio" name="interaction-mode" value="route-smart" class="accent-[#ffaa00]"> 🛣️ Rota (Estradas Inteligente)</label>
+                    <div class="flex flex-col gap-2 text-sm md:text-xs">
+                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="ping" checked> 📡 Radar Ping</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-straight" class="accent-[#bf00ff]"> 📏 Rota (Linha Reta)</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-smart" class="accent-[#ffaa00]"> 🛣️ Rota (Estradas Inteligente)</label>
                     </div>
                 </section>
 
                 <section class="bg-black/40 p-3 rounded border border-gray-800">
                     <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Imagens de Satélite</h2>
-                    <div class="flex flex-col gap-1">
-                        <label class="flex items-center gap-2 text-xs"><input type="radio" name="map-type" value="terrain" checked> Terrain (Alta Fidelidade)</label>
-                        <label class="flex items-center gap-2 text-xs"><input type="radio" name="map-type" value="topo"> Topographic (Altimetria)</label>
+                    <div class="flex flex-col gap-2 text-sm md:text-xs">
+                        <label class="flex items-center gap-2"><input type="radio" name="map-type" value="terrain" checked> Terrain (Alta Fidelidade)</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="map-type" value="topo"> Topographic (Altimetria)</label>
                     </div>
                 </section>
 
@@ -99,7 +100,7 @@
 
                 <section class="bg-black/40 p-3 rounded border border-gray-800">
                     <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Camadas Táticas</h2>
-                    <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="grid grid-cols-2 gap-3 text-sm md:text-xs">
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-active" checked> <span class="text-[#00ff66]">Deed (Ativa)</span></label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-fallen" checked> <span class="text-[#ff003c]">Deed (Caída)</span></label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-highways" checked> Highways</label>
@@ -112,14 +113,14 @@
 
                 <section class="bg-black/40 p-3 rounded border border-gray-800">
                     <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Localizador</h2>
-                    <div class="flex gap-4 mb-2 text-xs">
+                    <div class="flex gap-4 mb-2 text-sm md:text-xs">
                         <label class="flex items-center gap-1"><input type="radio" name="find-type" value="deed" checked> Deed</label>
                         <label class="flex items-center gap-1"><input type="radio" name="find-type" value="special"> Special</label>
                     </div>
                     <select id="search-select" class="mb-2">
                         <option value="">Sincronizando...</option>
                     </select>
-                    <button id="btn-focus" class="w-full py-1 bg-[#00f3ff]/20 text-[#00f3ff] text-xs font-mono border border-[#00f3ff] hover:bg-[#00f3ff]/40 transition">FOCAR COORDENADA</button>
+                    <button id="btn-focus" class="w-full py-2 bg-[#00f3ff]/20 text-[#00f3ff] text-sm font-mono border border-[#00f3ff] hover:bg-[#00f3ff]/40 transition">FOCAR COORDENADA</button>
                 </section>
 
                 <section class="bg-black/40 p-3 rounded border border-gray-800">
@@ -132,15 +133,22 @@
         <footer class="p-3 border-t border-gray-800 bg-black mt-auto">
             <h2 class="text-[10px] font-mono text-gray-500 mb-1">> System Logs</h2>
             <div id="terminal" class="h-20 font-mono text-[9px] text-green-400 overflow-y-auto break-all">
-                [SYS] Motor Inicializado. Resolvido bug de injeção de dependência do Grafo.
+                [SYS] UI Mobile e Gestos Touch Integrados com Sucesso.
             </div>
         </footer>
     </aside>
 
-    <main id="map-container" class="flex-1 relative bg-[#050505] overflow-hidden ml-80 cursor-crosshair">
-        <div class="absolute top-4 right-4 z-10 bg-black/80 text-[#00f3ff] font-mono text-[10px] px-3 py-1 border border-[#00f3ff]/30 backdrop-blur">
+    <!-- AREA DO MAPA -->
+    <main id="map-container" class="flex-1 relative bg-[#050505] overflow-hidden cursor-crosshair h-full w-full">
+        <!-- Menu Hamburger (Somente Mobile) -->
+        <button id="mobile-menu-btn" class="md:hidden absolute top-4 left-4 z-20 bg-black/80 text-[#00f3ff] p-2 border border-[#00f3ff]/50 shadow-[0_0_10px_rgba(0,243,255,0.2)] backdrop-blur rounded">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+
+        <div class="absolute top-4 right-4 z-10 bg-black/80 text-[#00f3ff] font-mono text-[10px] px-3 py-1 border border-[#00f3ff]/30 backdrop-blur rounded pointer-events-none">
             MOUSE: <span id="hud-mouse">X:0 Y:0</span> | ZM: <span id="hud-scale">1.0x</span>
         </div>
+        
         <canvas id="tactical-canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
     </main>
 
@@ -247,14 +255,12 @@
             buildGraph() {
                 this.data.graph.clear();
                 this.data.nodes = [];
-                
                 let nodeId = 0;
                 
-                // Variáveis para Fusão Espacial (Spatial Hashing)
                 const spatialGrid = new Map();
                 const cellSize = 50; 
-                const maxConnectionDist = 15; // Distância máxima para fundir estradas que se cruzam visualmente
-                const interpolateStep = 10; // Quebra a estrada a cada 10 pixels
+                const maxConnectionDist = 15; 
+                const interpolateStep = 10; 
 
                 const createNode = (x, y) => {
                     const node = { id: nodeId++, x, y };
@@ -279,7 +285,6 @@
                     if (!edges2.find(e => e.target === n1.id)) edges2.push({ target: n1.id, weight: dist });
                 };
 
-                // ETAPA 1: Processa as rotas interpolando os pontos
                 const processPaths = (paths) => {
                     paths.forEach(r => {
                         let prevNode = null;
@@ -308,13 +313,11 @@
                 processPaths(this.data.bridges);
                 processPaths(this.data.tunnels);
 
-                // ETAPA 2: FUSÃO DE MALHA (O segredo para consertar estradas isoladas)
                 let fusionCount = 0;
                 for (const node of this.data.nodes) {
                     const gx = Math.floor(node.x / cellSize);
                     const gy = Math.floor(node.y / cellSize);
 
-                    // Escaneia a célula atual e as vizinhas (Grid 3x3)
                     for (let dx = -1; dx <= 1; dx++) {
                         for (let dy = -1; dy <= 1; dy++) {
                             const neighborCells = spatialGrid.get(`${gx + dx},${gy + dy}`);
@@ -322,7 +325,6 @@
                                 for (const otherNode of neighborCells) {
                                     if (node.id !== otherNode.id) {
                                         const dist = Math.hypot(otherNode.x - node.x, otherNode.y - node.y);
-                                        // Se duas estradas passarem muito perto, costura elas criando um cruzamento lógico
                                         if (dist <= maxConnectionDist) {
                                             addEdge(node, otherNode);
                                             fusionCount++;
@@ -370,6 +372,12 @@
             }
 
             initEvents() {
+                let isPinching = false;
+                let pinchInitialDist = 0;
+                let pinchInitialScale = 1;
+                let touchMoved = false;
+
+                // EVENTOS DE MOUSE (Desktop)
                 this.canvas.addEventListener('mousedown', e => {
                     this.isDragging = true;
                     this.dragStart = { x: e.clientX - this.camera.x, y: e.clientY - this.camera.y };
@@ -406,8 +414,62 @@
                     this.scheduleRender();
                 }, { passive: false });
 
+                // EVENTOS TOUCH (Mobile)
+                this.canvas.addEventListener('touchstart', e => {
+                    touchMoved = false;
+                    if (e.touches.length === 1) {
+                        this.isDragging = true;
+                        this.dragStart = { x: e.touches[0].clientX - this.camera.x, y: e.touches[0].clientY - this.camera.y };
+                    } else if (e.touches.length === 2) {
+                        isPinching = true;
+                        pinchInitialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                        pinchInitialScale = this.camera.scale;
+                    }
+                }, { passive: false });
+
+                this.canvas.addEventListener('touchmove', e => {
+                    e.preventDefault(); // Evita scroll da pagina
+                    touchMoved = true;
+
+                    if (isPinching && e.touches.length === 2) {
+                        const currentDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                        const zoomFactor = currentDist / pinchInitialDist;
+                        const newScale = Math.max(0.05, Math.min(pinchInitialScale * zoomFactor, 8));
+
+                        const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                        const my = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                        
+                        const rect = this.container.getBoundingClientRect();
+                        const rx = mx - rect.left;
+                        const ry = my - rect.top;
+                        
+                        const tx = (rx - this.camera.x) / this.camera.scale;
+                        const ty = (ry - this.camera.y) / this.camera.scale;
+
+                        this.camera.scale = newScale;
+                        this.camera.x = rx - (tx * this.camera.scale);
+                        this.camera.y = ry - (ty * this.camera.scale);
+
+                        document.getElementById('hud-scale').textContent = `${this.camera.scale.toFixed(1)}x`;
+                        this.scheduleRender();
+                    } else if (this.isDragging && e.touches.length === 1) {
+                        this.camera.x = e.touches[0].clientX - this.dragStart.x;
+                        this.camera.y = e.touches[0].clientY - this.dragStart.y;
+                        this.scheduleRender();
+                    }
+                }, { passive: false });
+
+                this.canvas.addEventListener('touchend', e => {
+                    if (e.touches.length < 2) isPinching = false;
+                    if (e.touches.length === 0) this.isDragging = false;
+                });
+
+                // CLIQUE (Tanto para Mouse quanto Toque no celular)
                 this.canvas.addEventListener('click', e => {
+                    // Impede que clique acidental dispare após arrastar no celular ou desktop
+                    if (touchMoved) return; 
                     if (this.isDragging && Math.abs(e.clientX - this.dragStart.x - this.camera.x) > 5) return;
+                    
                     const rect = this.container.getBoundingClientRect();
                     const x = Math.round((e.clientX - rect.left - this.camera.x) / this.camera.scale);
                     const y = Math.round((e.clientY - rect.top - this.camera.y) / this.camera.scale);
@@ -565,7 +627,7 @@
                 const timeStr = Math.floor(totalMinutes / 60) > 0 ? `${Math.floor(totalMinutes/60)}h ${totalMinutes%60}m` : `${totalMinutes} min`;
 
                 if (this.config.mode === 'route-smart' && !pathFound && p1 !== p2) {
-                    output.innerHTML = `<span class="text-red-400 font-bold">Sem Conexão Viária (Redes Isoladas)</span><br><span class="text-gray-400">Distância Direta: ${distanceKm.toFixed(2)} km</span>`;
+                    output.innerHTML = `<span class="text-red-400 font-bold">Sem Conexão Viária (Isoladas)</span><br><span class="text-gray-400">Distância Direta: ${distanceKm.toFixed(2)} km</span>`;
                     logger.log(`A* Falhou: Nós viários sem conexão lógica real. Exibindo linha direta.`, "warn");
                 } else {
                     output.innerHTML = `<span class="text-[#00f3ff]">${totalDistanceTiles} tiles</span> | <span class="text-[#ffaa00]">${distanceKm.toFixed(2)} km</span><br>ETA: <span class="text-white">${timeStr}</span>`;
@@ -783,7 +845,6 @@
                 if (this.data && (this.config.layers.deedsActive || this.config.layers.deedsFallen)) {
                     const r = 4 / this.camera.scale;
                     
-                    // Desenha os pontos (bolinhas)
                     this.data.deeds.forEach(d => {
                         const isActive = !d.isHidden;
                         const isFallen = d.isHidden;
@@ -795,7 +856,6 @@
                         ctx.beginPath(); ctx.arc(Math.round(d.x), Math.round(d.y), r, 0, 6.28); ctx.fill();
                     });
 
-                    // Desenha os textos (nomes)
                     const fontSizeDeed = Math.max(12, 16 / this.camera.scale);
                     this.data.deeds.forEach(d => {
                         const isActive = !d.isHidden;
@@ -837,6 +897,15 @@
             const controlsModule = document.getElementById('controls-module');
             const panelTitle = document.getElementById('route-panel-title');
             
+            // Controle Mobile do Sidebar Gaveta
+            const sidebar = document.getElementById('sidebar');
+            document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+                sidebar.classList.remove('-translate-x-full');
+            });
+            document.getElementById('close-sidebar-btn').addEventListener('click', () => {
+                sidebar.classList.add('-translate-x-full');
+            });
+
             const updateSelect = () => {
                 const select = document.getElementById('search-select');
                 const type = document.querySelector('input[name="find-type"]:checked').value;
@@ -917,6 +986,8 @@
                 if(val) {
                     const [x, y] = val.split(',').map(Number);
                     mapEngine.focusCamera(x, y, true);
+                    // Oculta menu no mobile ao focar em coordenada
+                    if (window.innerWidth < 768) sidebar.classList.add('-translate-x-full'); 
                 }
             });
 
