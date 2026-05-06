@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GAMA HARMONY // Ultimate Tactical Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-base: #050505;
+            --cyan: #00f3ff;
+            --magenta: #bf00ff;
+            --orange: #ffaa00;
+            --panel: rgba(10, 15, 20, 0.9);
+        }
+        body { background-color: var(--bg-base); color: #e0e0e0; font-family: 'Rajdhani', sans-serif; overflow: hidden; user-select: none; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .cyber-panel {
+            background: var(--panel); backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0,0,0,0.9), inset 0 0 10px rgba(0, 243, 255, 0.05);
+        }
+        .neon-border-b { border-bottom: 2px solid var(--cyan); }
+        .text-glow { text-shadow: 0 0 8px rgba(0, 243, 255, 0.6); }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); }
+        ::-webkit-scrollbar-thumb { background: var(--cyan); border-radius: 3px; }
+        
+        .scanlines::before {
+            content: " "; display: block; position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 50; background-size: 100% 2px, 3px 100%; pointer-events: none;
+        }
+
+        input[type="checkbox"], input[type="radio"] { accent-color: var(--cyan); cursor: pointer; }
+        input[type="number"], select, input[type="text"] { background: rgba(0,0,0,0.6); border: 1px solid var(--cyan); color: var(--cyan); outline: none; padding: 4px 8px; width: 100%; font-family: 'JetBrains Mono'; font-size: 12px; }
+        select option { background: #0a0f14; color: var(--cyan); }
+        
+        #tactical-canvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex scanlines">
+
+    <aside class="cyber-panel w-80 h-full flex flex-col z-20 absolute left-0 border-r overflow-y-auto">
+        <header class="p-5 neon-border-b bg-black/60 sticky top-0 z-30">
+            <h1 class="text-3xl font-bold text-[#00f3ff] text-glow tracking-widest">GAMA HARMONY</h1>
+            <p class="text-[10px] font-mono text-gray-400 mt-1">A* PATHFINDING ENGINE v8.6</p>
+        </header>
+
+        <div class="p-5 space-y-5 flex-1 pb-10">
+            <section>
+                <div id="status-indicator" class="w-full py-2 bg-transparent border border-yellow-500 text-yellow-500 font-mono text-sm flex items-center justify-center gap-2 animate-pulse">
+                    ⚡ Conectando à Rede Global...
+                </div>
+            </section>
+
+            <div id="controls-module" class="opacity-50 pointer-events-none transition-opacity space-y-5">
+                
+                <section class="bg-black/40 p-3 rounded border border-gray-800">
+                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Modo Tático</h2>
+                    <div class="flex flex-col gap-2 text-xs">
+                        <label class="flex items-center gap-1"><input type="radio" name="interaction-mode" value="ping" checked> 📡 Radar Ping</label>
+                        <label class="flex items-center gap-1"><input type="radio" name="interaction-mode" value="route-straight" class="accent-[#bf00ff]"> 📏 Rota (Linha Reta)</label>
+                        <label class="flex items-center gap-1"><input type="radio" name="interaction-mode" value="route-smart" class="accent-[#ffaa00]"> 🛣️ Rota (Estradas Inteligente)</label>
+                    </div>
+                </section>
+
+                <section class="bg-black/40 p-3 rounded border border-gray-800">
+                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Imagens de Satélite</h2>
+                    <div class="flex flex-col gap-1">
+                        <label class="flex items-center gap-2 text-xs"><input type="radio" name="map-type" value="terrain" checked> Terrain (Alta Fidelidade)</label>
+                        <label class="flex items-center gap-2 text-xs"><input type="radio" name="map-type" value="topo"> Topographic (Altimetria)</label>
+                    </div>
+                </section>
+
+                <section class="bg-black/40 p-3 rounded border border-[#bf00ff]/50 shadow-[0_0_10px_rgba(191,0,255,0.1)] transition-colors" id="route-panel">
+                    <h2 class="text-xs font-mono text-gray-200 mb-2 uppercase" id="route-panel-title">> Telemetria de Rota</h2>
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs text-gray-400">Velocidade Média:</span>
+                        <div class="flex items-center gap-1">
+                            <input type="number" id="route-speed" value="30" class="w-14 text-center border-gray-500 text-white">
+                            <span class="text-xs text-gray-400">km/h</span>
+                        </div>
+                    </div>
+                    <div id="route-output" class="text-center font-mono text-[11px] text-gray-300 bg-black/50 p-2 border border-gray-800 rounded">
+                        Aguardando coordenadas...
+                    </div>
+                    <button id="btn-clear-route" class="w-full mt-2 py-1 bg-transparent text-gray-400 text-xs font-mono border border-gray-700 hover:text-white hover:border-gray-500 transition hidden">LIMPAR ROTA</button>
+                </section>
+
+                <section class="bg-black/40 p-3 rounded border border-gray-800">
+                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Camadas Táticas</h2>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-active" checked> <span class="text-[#00ff66]">Deed (Ativa)</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-fallen" checked> <span class="text-[#ff003c]">Deed (Caída)</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-highways" checked> Highways</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-bridges" checked> Bridges</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-tunnels" checked> Tunnels</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-specials"> Specials</label>
+                        <label class="flex items-center gap-2 col-span-2"><input type="checkbox" id="l-grid" checked> Grid Alfanumérico (G)</label>
+                    </div>
+                </section>
+
+                <section class="bg-black/40 p-3 rounded border border-gray-800">
+                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Localizador</h2>
+                    <div class="flex gap-4 mb-2 text-xs">
+                        <label class="flex items-center gap-1"><input type="radio" name="find-type" value="deed" checked> Deed</label>
+                        <label class="flex items-center gap-1"><input type="radio" name="find-type" value="special"> Special</label>
+                    </div>
+                    <select id="search-select" class="mb-2">
+                        <option value="">Sincronizando...</option>
+                    </select>
+                    <button id="btn-focus" class="w-full py-1 bg-[#00f3ff]/20 text-[#00f3ff] text-xs font-mono border border-[#00f3ff] hover:bg-[#00f3ff]/40 transition">FOCAR COORDENADA</button>
+                </section>
+
+                <section class="bg-black/40 p-3 rounded border border-gray-800">
+                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Alvo Atual (URL Shareable)</h2>
+                    <input type="text" id="hud-selected" value="Aguardando..." readonly class="text-center font-bold tracking-widest text-[#00ff66]">
+                </section>
+            </div>
+        </div>
+
+        <footer class="p-3 border-t border-gray-800 bg-black mt-auto">
+            <h2 class="text-[10px] font-mono text-gray-500 mb-1">> System Logs</h2>
+            <div id="terminal" class="h-20 font-mono text-[9px] text-green-400 overflow-y-auto break-all">
+                [SYS] Motor Inicializado. Resolvido bug de injeção de dependência do Grafo.
+            </div>
+        </footer>
+    </aside>
+
+    <main id="map-container" class="flex-1 relative bg-[#050505] overflow-hidden ml-80 cursor-crosshair">
+        <div class="absolute top-4 right-4 z-10 bg-black/80 text-[#00f3ff] font-mono text-[10px] px-3 py-1 border border-[#00f3ff]/30 backdrop-blur">
+            MOUSE: <span id="hud-mouse">X:0 Y:0</span> | ZM: <span id="hud-scale">1.0x</span>
+        </div>
+        <canvas id="tactical-canvas" class="absolute top-0 left-0 w-full h-full"></canvas>
+    </main>
+
+    <script>
+        // --- 1. CORE UTILS & DATA STRUCTURES ---
+        class SystemLog {
+            constructor(id) { this.terminal = document.getElementById(id); }
+            log(msg, type = 'info') {
+                const colors = { error: 'text-red-500', warn: 'text-yellow-400', info: 'text-green-400', cyber: 'text-[#00f3ff]', route: 'text-[#ffaa00]' };
+                const line = document.createElement('div');
+                line.className = `mb-1 ${colors[type]}`;
+                line.textContent = `[${new Date().toLocaleTimeString('pt-BR')}] ${msg}`;
+                this.terminal.appendChild(line);
+                this.terminal.scrollTop = this.terminal.scrollHeight;
+            }
+        }
+        const logger = new SystemLog('terminal');
+
+        class MinHeap {
+            constructor() { this.heap = []; }
+            push(val, prio) {
+                this.heap.push({val, prio});
+                this.up(this.heap.length - 1);
+            }
+            pop() {
+                if(this.heap.length === 0) return null;
+                if(this.heap.length === 1) return this.heap.pop();
+                const top = this.heap[0];
+                this.heap[0] = this.heap.pop();
+                this.down(0);
+                return top;
+            }
+            up(i) {
+                while(i > 0) {
+                    let p = Math.floor((i-1)/2);
+                    if(this.heap[i].prio >= this.heap[p].prio) break;
+                    [this.heap[i], this.heap[p]] = [this.heap[p], this.heap[i]];
+                    i = p;
+                }
+            }
+            down(i) {
+                while(i*2+1 < this.heap.length) {
+                    let left = i*2+1, right = i*2+2, min = left;
+                    if(right < this.heap.length && this.heap[right].prio < this.heap[left].prio) min = right;
+                    if(this.heap[i].prio <= this.heap[min].prio) break;
+                    [this.heap[i], this.heap[min]] = [this.heap[min], this.heap[i]];
+                    i = min;
+                }
+            }
+            isEmpty() { return this.heap.length === 0; }
+        }
+
+        // --- 2. DATA FETCHER & GRAPH BUILDER ---
+        class DataLink {
+            constructor() { 
+                this.data = { deeds: [], highways: [], bridges: [], tunnels: [], specials: [], graph: new Map(), nodes: [] }; 
+            }
+
+            async fetchDynamicData() {
+                let htmlRaw = null;
+                try {
+                    const proxies = [
+                        "https://api.codetabs.com/v1/proxy/?quest=https://harmony.yaga.host",
+                        "https://corsproxy.io/?https://harmony.yaga.host"
+                    ];
+                    for (let url of proxies) {
+                        try {
+                            const res = await fetch(url);
+                            if (res.ok) { htmlRaw = await res.text(); break; }
+                        } catch(e) {}
+                    }
+                    if (!htmlRaw) throw new Error("Acesso bloqueado por WAF.");
+                    const match = htmlRaw.match(/window\.sheetData\s*=\s*(\{[\s\S]+?\});/);
+                    if (!match) throw new Error("Assinatura JSON ausente.");
+
+                    await this.parseData(JSON.parse(match[1]));
+                } catch (e) { throw new Error(e.message); }
+            }
+
+            parseData(rawJson) {
+                return new Promise(resolve => {
+                    setTimeout(() => {
+                        const getTab = name => rawJson.valueRanges.find(r => r.range.includes(name))?.values || [];
+                        
+                        this.data.deeds = getTab("Deeds").map(row => ({ name: row[0], x: parseInt(row[1]), y: parseInt(row[2]), isHidden: row[3] === "HID" || row[3] === "RIG" })).filter(d => !isNaN(d.x));
+                        this.data.specials = getTab("Special").map(row => ({ name: row[0], x: parseInt(row[1]), y: parseInt(row[2]) })).filter(s => !isNaN(s.x));
+
+                        const parsePath = row => { try { return { name: row[0], path: JSON.parse(row[1]) }; } catch(e) { return null; } };
+                        this.data.highways = getTab("Highways").map(parsePath).filter(v=>v);
+
+                        const parseSegment = row => {
+                            if(row.length >= 5) return { name: row[0], path: [ [parseInt(row[1]), parseInt(row[2])], [parseInt(row[3]), parseInt(row[4])] ] };
+                            return null;
+                        };
+                        this.data.bridges = getTab("Bridges").map(parseSegment).filter(v=>v);
+                        this.data.tunnels = getTab("Tunnels").map(parseSegment).filter(v=>v);
+                        
+                        this.buildGraph();
+                        resolve();
+                    }, 50);
+                });
+            }
+
+            buildGraph() {
+                this.data.graph.clear();
+                this.data.nodes = [];
+                
+                let nodeId = 0;
+                
+                // Variáveis para Fusão Espacial (Spatial Hashing)
+                const spatialGrid = new Map();
+                const cellSize = 50; 
+                const maxConnectionDist = 15; // Distância máxima para fundir estradas que se cruzam visualmente
+                const interpolateStep = 10; // Quebra a estrada a cada 10 pixels
+
+                const createNode = (x, y) => {
+                    const node = { id: nodeId++, x, y };
+                    this.data.nodes.push(node);
+                    this.data.graph.set(node.id, []);
+
+                    const gKey = `${Math.floor(x/cellSize)},${Math.floor(y/cellSize)}`;
+                    if(!spatialGrid.has(gKey)) spatialGrid.set(gKey, []);
+                    spatialGrid.get(gKey).push(node);
+
+                    return node;
+                };
+
+                const addEdge = (n1, n2) => {
+                    if (n1.id === n2.id) return;
+                    const dist = Math.hypot(n2.x - n1.x, n2.y - n1.y);
+                    
+                    const edges1 = this.data.graph.get(n1.id);
+                    if (!edges1.find(e => e.target === n2.id)) edges1.push({ target: n2.id, weight: dist });
+
+                    const edges2 = this.data.graph.get(n2.id);
+                    if (!edges2.find(e => e.target === n1.id)) edges2.push({ target: n1.id, weight: dist });
+                };
+
+                // ETAPA 1: Processa as rotas interpolando os pontos
+                const processPaths = (paths) => {
+                    paths.forEach(r => {
+                        let prevNode = null;
+                        for (let i = 0; i < r.path.length - 1; i++) {
+                            const p1 = r.path[i];
+                            const p2 = r.path[i+1];
+                            if (!p1 || !p2 || isNaN(p1[0]) || isNaN(p2[0])) continue;
+
+                            const dist = Math.hypot(p2[0]-p1[0], p2[1]-p1[1]);
+                            const steps = Math.max(1, Math.ceil(dist / interpolateStep));
+
+                            for (let j = 0; j <= steps; j++) {
+                                const t = j / steps;
+                                const nx = p1[0] + (p2[0] - p1[0]) * t;
+                                const ny = p1[1] + (p2[1] - p1[1]) * t;
+                                
+                                const currNode = createNode(nx, ny);
+                                if (prevNode) addEdge(prevNode, currNode);
+                                prevNode = currNode;
+                            }
+                        }
+                    });
+                };
+
+                processPaths(this.data.highways);
+                processPaths(this.data.bridges);
+                processPaths(this.data.tunnels);
+
+                // ETAPA 2: FUSÃO DE MALHA (O segredo para consertar estradas isoladas)
+                let fusionCount = 0;
+                for (const node of this.data.nodes) {
+                    const gx = Math.floor(node.x / cellSize);
+                    const gy = Math.floor(node.y / cellSize);
+
+                    // Escaneia a célula atual e as vizinhas (Grid 3x3)
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            const neighborCells = spatialGrid.get(`${gx + dx},${gy + dy}`);
+                            if (neighborCells) {
+                                for (const otherNode of neighborCells) {
+                                    if (node.id !== otherNode.id) {
+                                        const dist = Math.hypot(otherNode.x - node.x, otherNode.y - node.y);
+                                        // Se duas estradas passarem muito perto, costura elas criando um cruzamento lógico
+                                        if (dist <= maxConnectionDist) {
+                                            addEdge(node, otherNode);
+                                            fusionCount++;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                logger.log(`Grafo Tático: ${this.data.nodes.length} nós e ${fusionCount/2} fusões de malha.`, 'info');
+            }
+        }
+
+        // --- 3. SATELLITE MAP ENGINE ---
+        class MapEngine {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d', { alpha: false, antialias: false });
+                this.container = this.canvas.parentElement;
+                
+                this.data = null;
+                this.assets = { terrain: new Image(), topo: new Image() };
+                this.loadAssets();
+
+                this.config = { mode: 'ping', shader: 'terrain', layers: { deedsActive: true, deedsFallen: true, highways: true, bridges: true, tunnels: true, specials: false, grid: true } };
+                this.camera = { x: -1000, y: -1000, scale: 0.5 };
+                this.isDragging = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.targetPing = null; 
+                this.routePoints = []; 
+                this.smartRoutePath = [];
+
+                this.initEvents();
+                const resizeObserver = new ResizeObserver(() => this.resize());
+                resizeObserver.observe(this.container);
+            }
+
+            loadAssets() {
+                this.assets.terrain.src = 'https://harmony.yaga.host/harmony-terrain.png';
+                this.assets.terrain.onload = () => this.scheduleRender();
+                this.assets.topo.src = 'https://harmony.yaga.host/harmony-topo.png';
+                this.assets.topo.onload = () => this.scheduleRender();
+            }
+
+            initEvents() {
+                this.canvas.addEventListener('mousedown', e => {
+                    this.isDragging = true;
+                    this.dragStart = { x: e.clientX - this.camera.x, y: e.clientY - this.camera.y };
+                });
+                
+                window.addEventListener('mouseup', () => this.isDragging = false);
+                
+                this.canvas.addEventListener('mousemove', e => {
+                    const rect = this.container.getBoundingClientRect();
+                    const gx = Math.round((e.clientX - rect.left - this.camera.x) / this.camera.scale);
+                    const gy = Math.round((e.clientY - rect.top - this.camera.y) / this.camera.scale);
+                    document.getElementById('hud-mouse').textContent = `X:${gx} Y:${gy}`;
+
+                    if (this.isDragging) {
+                        this.camera.x = e.clientX - this.dragStart.x;
+                        this.camera.y = e.clientY - this.dragStart.y;
+                        this.scheduleRender();
+                    }
+                });
+
+                this.canvas.addEventListener('wheel', e => {
+                    e.preventDefault();
+                    const rect = this.container.getBoundingClientRect();
+                    const zFactor = Math.exp((e.deltaY < 0 ? 1 : -1) * 0.1);
+                    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+                    const tx = (mx - this.camera.x) / this.camera.scale;
+                    const ty = (my - this.camera.y) / this.camera.scale;
+
+                    this.camera.scale = Math.max(0.05, Math.min(this.camera.scale * zFactor, 8));
+                    this.camera.x = mx - (tx * this.camera.scale);
+                    this.camera.y = my - (ty * this.camera.scale);
+                    
+                    document.getElementById('hud-scale').textContent = `${this.camera.scale.toFixed(1)}x`;
+                    this.scheduleRender();
+                }, { passive: false });
+
+                this.canvas.addEventListener('click', e => {
+                    if (this.isDragging && Math.abs(e.clientX - this.dragStart.x - this.camera.x) > 5) return;
+                    const rect = this.container.getBoundingClientRect();
+                    const x = Math.round((e.clientX - rect.left - this.camera.x) / this.camera.scale);
+                    const y = Math.round((e.clientY - rect.top - this.camera.y) / this.camera.scale);
+                    
+                    if (this.config.mode === 'ping') {
+                        this.focusCamera(x, y, false);
+                    } else if (this.config.mode.startsWith('route')) {
+                        if (this.routePoints.length >= 2) {
+                            this.routePoints = [];
+                            this.smartRoutePath = [];
+                        }
+                        this.routePoints.push({x, y});
+                        this.calculateRoute();
+                        this.scheduleRender();
+                    }
+                });
+            }
+
+            resize() {
+                const rect = this.container.getBoundingClientRect();
+                if(rect.width === 0 || rect.height === 0) return; 
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.ctx.imageSmoothingEnabled = false; 
+                this.scheduleRender();
+            }
+
+            loadData(data) {
+                this.data = data;
+                this.camera.x = Math.floor((this.canvas.width / 2) - (2000 * this.camera.scale));
+                this.camera.y = Math.floor((this.canvas.height / 2) - (2000 * this.camera.scale));
+                this.scheduleRender();
+            }
+
+            focusCamera(x, y, changeScale = true) {
+                if (changeScale) {
+                    this.camera.scale = 1.5;
+                    document.getElementById('hud-scale').textContent = '1.5x';
+                }
+                this.camera.x = Math.floor((this.canvas.width / 2) - (x * this.camera.scale));
+                this.camera.y = Math.floor((this.canvas.height / 2) - (y * this.camera.scale));
+                
+                this.targetPing = { x, y, radius: 0 };
+                document.getElementById('hud-selected').value = `X:${x}, Y:${y}`;
+                
+                const shareableUrl = `${window.location.pathname}?x=${x}&y=${y}`;
+                window.history.replaceState(null, '', shareableUrl);
+
+                this.animatePing();
+            }
+
+            getNearestGraphNode(x, y) {
+                if (!this.data || !this.data.nodes || this.data.nodes.length === 0) return null;
+                let nearest = null;
+                let minDist = Infinity;
+                
+                for (let i = 0; i < this.data.nodes.length; i++) {
+                    const node = this.data.nodes[i];
+                    const dist = Math.hypot(node.x - x, node.y - y);
+                    if (dist < minDist) { minDist = dist; nearest = { id: node.id, x: node.x, y: node.y, dist }; }
+                }
+                return nearest;
+            }
+
+            calculateRoute() {
+                const output = document.getElementById('route-output');
+                const btnClear = document.getElementById('btn-clear-route');
+
+                if (this.routePoints.length === 0) {
+                    output.innerHTML = 'Clique no mapa para marcar Ponto A e B.';
+                    btnClear.classList.add('hidden');
+                    return;
+                }
+                if (this.routePoints.length === 1) {
+                    output.innerHTML = 'Ponto A definido. Aguardando Ponto B...';
+                    btnClear.classList.remove('hidden');
+                    return;
+                }
+
+                const p1 = this.routePoints[0];
+                const p2 = this.routePoints[1];
+                let totalDistanceTiles = 0;
+                let pathFound = false;
+
+                if (this.config.mode === 'route-straight') {
+                    totalDistanceTiles = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    this.smartRoutePath = []; 
+                } 
+                else if (this.config.mode === 'route-smart') {
+                    const nodeA = this.getNearestGraphNode(p1.x, p1.y);
+                    const nodeB = this.getNearestGraphNode(p2.x, p2.y);
+                    
+                    if(!nodeA || !nodeB) {
+                        logger.log("Grafo não processado. Rota falhou.", "error");
+                        output.innerHTML = '<span class="text-red-500">Erro: Malha de estradas não inicializada.</span>';
+                        return;
+                    }
+
+                    const distances = new Map();
+                    const previous = new Map();
+                    const visited = new Set(); 
+                    const pq = new MinHeap();
+                    
+                    distances.set(nodeA.id, 0);
+                    pq.push(nodeA.id, 0);
+
+                    while(!pq.isEmpty()) {
+                        const popped = pq.pop();
+                        const currentId = popped.val;
+                        
+                        if (currentId === nodeB.id) {
+                            pathFound = true;
+                            break;
+                        }
+
+                        if (visited.has(currentId)) continue;
+                        visited.add(currentId);
+
+                        const neighbors = this.data.graph.get(currentId) || [];
+                        for(let edge of neighbors) {
+                            if (visited.has(edge.target)) continue;
+
+                            const alt = distances.get(currentId) + edge.weight;
+                            if(alt < (distances.get(edge.target) || Infinity)) {
+                                distances.set(edge.target, alt);
+                                previous.set(edge.target, currentId);
+                                
+                                const targetNode = this.data.nodes[edge.target];
+                                const heur = Math.hypot(targetNode.x - nodeB.x, targetNode.y - nodeB.y);
+                                pq.push(edge.target, alt + heur);
+                            }
+                        }
+                    }
+
+                    this.smartRoutePath = [];
+                    
+                    if (pathFound || nodeA.id === nodeB.id) {
+                        let currId = nodeB.id;
+                        while(currId !== undefined && currId !== null) {
+                            const n = this.data.nodes[currId];
+                            this.smartRoutePath.unshift({x: n.x, y: n.y});
+                            currId = previous.get(currId);
+                        }
+                        const distGraph = distances.get(nodeB.id) || 0;
+                        totalDistanceTiles = nodeA.dist + distGraph + nodeB.dist;
+                    } else {
+                        totalDistanceTiles = Math.hypot(p2.x - p1.x, p2.y - p1.y); 
+                    }
+                }
+
+                totalDistanceTiles = Math.round(totalDistanceTiles);
+                const distanceKm = (totalDistanceTiles * 4) / 1000; 
+                const speedKmh = parseFloat(document.getElementById('route-speed').value) || 30;
+                const totalMinutes = Math.round((distanceKm / speedKmh) * 60);
+                const timeStr = Math.floor(totalMinutes / 60) > 0 ? `${Math.floor(totalMinutes/60)}h ${totalMinutes%60}m` : `${totalMinutes} min`;
+
+                if (this.config.mode === 'route-smart' && !pathFound && p1 !== p2) {
+                    output.innerHTML = `<span class="text-red-400 font-bold">Sem Conexão Viária (Redes Isoladas)</span><br><span class="text-gray-400">Distância Direta: ${distanceKm.toFixed(2)} km</span>`;
+                    logger.log(`A* Falhou: Nós viários sem conexão lógica real. Exibindo linha direta.`, "warn");
+                } else {
+                    output.innerHTML = `<span class="text-[#00f3ff]">${totalDistanceTiles} tiles</span> | <span class="text-[#ffaa00]">${distanceKm.toFixed(2)} km</span><br>ETA: <span class="text-white">${timeStr}</span>`;
+                    logger.log(`Rota traçada com sucesso. Extensão: ${distanceKm.toFixed(2)} km.`, 'route');
+                }
+            }
+
+            clearRoute() {
+                this.routePoints = [];
+                this.smartRoutePath = [];
+                this.calculateRoute();
+                this.scheduleRender();
+            }
+
+            animatePing() {
+                if(this.pingAnim) cancelAnimationFrame(this.pingAnim);
+                const step = () => {
+                    if (!this.targetPing) return;
+                    this.targetPing.radius += 3;
+                    this.scheduleRender();
+                    if (this.targetPing.radius < 120) { this.pingAnim = requestAnimationFrame(step); } 
+                    else { this.targetPing = null; this.scheduleRender(); }
+                };
+                step();
+            }
+
+            updateConfig(type, key, value) {
+                if (type === 'layer') this.config.layers[key] = value;
+                else this.config[key] = value;
+                this.scheduleRender();
+            }
+
+            scheduleRender() {
+                if (this.pending) return;
+                this.pending = true;
+                requestAnimationFrame(() => this.render());
+            }
+
+            drawPath(ctx, pathObj) {
+                if (!Array.isArray(pathObj) || pathObj.length < 2) return;
+                const start = pathObj[0];
+                if (!Array.isArray(start) || start.length < 2) return;
+                ctx.moveTo(start[0], start[1]);
+                for(let j = 1; j < pathObj.length; j++) {
+                    const pt = pathObj[j];
+                    if(Array.isArray(pt) && pt.length >= 2) ctx.lineTo(pt[0], pt[1]);
+                }
+            }
+
+            drawAlphanumericGrid(ctx, mapSize) {
+                const gridSize = 200; 
+                ctx.beginPath();
+                ctx.strokeStyle = this.config.shader === 'topo' ? 'rgba(0, 150, 255, 0.4)' : 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 1 / this.camera.scale;
+
+                for (let i = 0; i <= mapSize; i += gridSize) {
+                    ctx.moveTo(i, 0); ctx.lineTo(i, mapSize);
+                    ctx.moveTo(0, i); ctx.lineTo(mapSize, i);
+                }
+                ctx.stroke();
+
+                if (this.camera.scale > 0.4) {
+                    ctx.fillStyle = this.config.shader === 'topo' ? 'rgba(0, 243, 255, 0.7)' : 'rgba(255, 255, 255, 0.4)';
+                    ctx.font = `bold ${Math.max(12, 18 / this.camera.scale)}px 'JetBrains Mono'`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+                    const getLetter = (num) => {
+                        let letter = '';
+                        while (num > 0) {
+                            let mod = (num - 1) % 26;
+                            letter = String.fromCharCode(65 + mod) + letter;
+                            num = Math.floor((num - mod) / 26);
+                        }
+                        return letter;
+                    };
+
+                    const startX = Math.max(0, Math.floor(-this.camera.x / this.camera.scale));
+                    const startY = Math.max(0, Math.floor(-this.camera.y / this.camera.scale));
+                    const endX = Math.min(mapSize, startX + (this.canvas.width / this.camera.scale));
+                    const endY = Math.min(mapSize, startY + (this.canvas.height / this.camera.scale));
+
+                    for (let x = Math.floor(startX/gridSize)*gridSize; x <= endX; x += gridSize) {
+                        for (let y = Math.floor(startY/gridSize)*gridSize; y <= endY; y += gridSize) {
+                            ctx.fillText(`${getLetter(Math.floor(y / gridSize) + 2)}${Math.floor(x / gridSize) + 7}`, x + (gridSize/2), y + (gridSize/2));
+                        }
+                    }
+                    ctx.textAlign = 'left';
+                }
+            }
+
+            render() {
+                this.pending = false;
+                const ctx = this.ctx;
+                
+                ctx.imageSmoothingEnabled = false;
+                ctx.fillStyle = '#050505';
+                ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                ctx.save();
+                ctx.translate(Math.round(this.camera.x), Math.round(this.camera.y));
+                ctx.scale(this.camera.scale, this.camera.scale);
+
+                const imgToDraw = this.config.shader === 'terrain' ? this.assets.terrain : this.assets.topo;
+                let mapSize = 6000; 
+
+                if (imgToDraw.complete && imgToDraw.naturalWidth > 0) {
+                    ctx.drawImage(imgToDraw, 0, 0); mapSize = imgToDraw.naturalWidth;
+                } else {
+                    ctx.fillStyle = this.config.shader === 'terrain' ? '#0a1f0f' : '#051224';
+                    ctx.fillRect(0, 0, mapSize, mapSize);
+                }
+
+                if (this.config.layers.grid) this.drawAlphanumericGrid(ctx, mapSize);
+
+                if (this.config.layers.tunnels) {
+                    ctx.beginPath(); ctx.strokeStyle = 'rgba(150, 150, 150, 0.9)'; ctx.lineWidth = 3 / this.camera.scale;
+                    ctx.setLineDash([6 / this.camera.scale, 6 / this.camera.scale]);
+                    if(this.data) this.data.tunnels.forEach(t => this.drawPath(ctx, t.path));
+                    ctx.stroke(); ctx.setLineDash([]);
+                    
+                    if(this.data) {
+                        this.data.tunnels.forEach(t => {
+                            if(t.path && t.path.length >= 2) {
+                                const mx = (t.path[0][0] + t.path[1][0]) / 2;
+                                const my = (t.path[0][1] + t.path[1][1]) / 2;
+                                this.drawText(ctx, t.name, mx, my, 'rgba(150, 150, 150, 1)', Math.max(10, 14 / this.camera.scale), true);
+                            }
+                        });
+                    }
+                }
+
+                if (this.config.layers.highways) {
+                    ctx.beginPath(); ctx.strokeStyle = 'rgba(100, 200, 255, 0.8)'; ctx.lineWidth = 3 / this.camera.scale;
+                    if(this.data) this.data.highways.forEach(h => this.drawPath(ctx, h.path));
+                    ctx.stroke();
+                }
+
+                if (this.config.layers.bridges) {
+                    ctx.beginPath(); ctx.strokeStyle = 'rgba(255, 120, 50, 1)'; ctx.lineWidth = 6 / this.camera.scale;
+                    if(this.data) this.data.bridges.forEach(b => this.drawPath(ctx, b.path));
+                    ctx.stroke();
+                    
+                    if(this.data) {
+                        this.data.bridges.forEach(b => {
+                            if(b.path && b.path.length >= 2) {
+                                const mx = (b.path[0][0] + b.path[1][0]) / 2;
+                                const my = (b.path[0][1] + b.path[1][1]) / 2;
+                                this.drawText(ctx, b.name, mx, my, 'rgba(255, 120, 50, 1)', Math.max(10, 14 / this.camera.scale), true);
+                            }
+                        });
+                    }
+                }
+
+                if (this.routePoints.length === 2) {
+                    if (this.config.mode === 'route-straight' || (this.config.mode === 'route-smart' && this.smartRoutePath.length === 0)) {
+                        ctx.beginPath();
+                        ctx.strokeStyle = this.config.mode === 'route-smart' ? '#ffaa00' : '#bf00ff';
+                        ctx.lineWidth = 5 / this.camera.scale;
+                        ctx.setLineDash([15 / this.camera.scale, 10 / this.camera.scale]);
+                        ctx.moveTo(this.routePoints[0].x, this.routePoints[0].y);
+                        ctx.lineTo(this.routePoints[1].x, this.routePoints[1].y);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    } else if (this.config.mode === 'route-smart' && this.smartRoutePath.length > 0) {
+                        
+                        ctx.beginPath();
+                        ctx.strokeStyle = '#ffaa00';
+                        ctx.lineWidth = 3 / this.camera.scale; 
+                        ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                        ctx.moveTo(this.routePoints[0].x, this.routePoints[0].y);
+                        ctx.lineTo(this.smartRoutePath[0].x, this.smartRoutePath[0].y);
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.lineWidth = 6 / this.camera.scale; 
+                        ctx.setLineDash([]); 
+                        ctx.moveTo(this.smartRoutePath[0].x, this.smartRoutePath[0].y);
+                        this.smartRoutePath.forEach(pt => ctx.lineTo(pt.x, pt.y));
+                        ctx.stroke();
+
+                        ctx.beginPath();
+                        ctx.lineWidth = 3 / this.camera.scale; 
+                        ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                        const lastNode = this.smartRoutePath[this.smartRoutePath.length - 1];
+                        ctx.moveTo(lastNode.x, lastNode.y);
+                        ctx.lineTo(this.routePoints[1].x, this.routePoints[1].y);
+                        ctx.stroke();
+                        ctx.setLineDash([]); 
+                    }
+                }
+
+                if (this.routePoints.length > 0) {
+                    this.routePoints.forEach((p, index) => {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, 6 / this.camera.scale, 0, 6.28);
+                        ctx.fillStyle = this.config.mode === 'route-smart' ? '#ffaa00' : '#bf00ff';
+                        ctx.fill(); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 / this.camera.scale; ctx.stroke();
+                        this.drawText(ctx, index === 0 ? "A" : "B", p.x, p.y - (10/this.camera.scale), '#fff', Math.max(14, 18/this.camera.scale), true);
+                    });
+                }
+
+                if (this.config.layers.specials && this.data) {
+                    this.data.specials.forEach(s => {
+                        ctx.fillStyle = '#ffaa00';
+                        ctx.beginPath();
+                        ctx.moveTo(s.x, s.y - (5/this.camera.scale));
+                        ctx.lineTo(s.x + (5/this.camera.scale), s.y + (5/this.camera.scale));
+                        ctx.lineTo(s.x - (5/this.camera.scale), s.y + (5/this.camera.scale));
+                        ctx.fill();
+                        
+                        this.drawText(ctx, s.name, s.x, s.y + (12/this.camera.scale), '#ffaa00', Math.max(12, 16 / this.camera.scale), true);
+                    });
+                }
+
+                if (this.data && (this.config.layers.deedsActive || this.config.layers.deedsFallen)) {
+                    const r = 4 / this.camera.scale;
+                    
+                    // Desenha os pontos (bolinhas)
+                    this.data.deeds.forEach(d => {
+                        const isActive = !d.isHidden;
+                        const isFallen = d.isHidden;
+                        
+                        if (isActive && !this.config.layers.deedsActive) return;
+                        if (isFallen && !this.config.layers.deedsFallen) return;
+                        
+                        ctx.fillStyle = isFallen ? '#ff003c' : '#00ff66';
+                        ctx.beginPath(); ctx.arc(Math.round(d.x), Math.round(d.y), r, 0, 6.28); ctx.fill();
+                    });
+
+                    // Desenha os textos (nomes)
+                    const fontSizeDeed = Math.max(12, 16 / this.camera.scale);
+                    this.data.deeds.forEach(d => {
+                        const isActive = !d.isHidden;
+                        const isFallen = d.isHidden;
+                        
+                        if (isActive && !this.config.layers.deedsActive) return;
+                        if (isFallen && !this.config.layers.deedsFallen) return;
+
+                        this.drawText(ctx, d.name, d.x, d.y, 'rgba(255,255,255,1)', fontSizeDeed);
+                    });
+                }
+
+                if (this.targetPing) {
+                    ctx.beginPath(); ctx.arc(this.targetPing.x, this.targetPing.y, this.targetPing.radius / this.camera.scale, 0, 6.28);
+                    ctx.strokeStyle = `rgba(0, 243, 255, ${1 - (this.targetPing.radius/120)})`; ctx.lineWidth = 3 / this.camera.scale; ctx.stroke();
+                }
+
+                ctx.restore();
+            }
+
+            drawText(ctx, text, x, y, color, fontSize, isCenter = false) {
+                if (this.camera.scale > 0.4) {
+                    ctx.fillStyle = color; ctx.font = `bold ${Math.round(fontSize)}px 'Rajdhani'`;
+                    ctx.strokeStyle = 'black'; ctx.lineWidth = 3 / this.camera.scale;
+                    ctx.textAlign = isCenter ? 'center' : 'left';
+                    const drawX = Math.round(x + (isCenter ? 0 : 8/this.camera.scale));
+                    const drawY = Math.round(y + (isCenter ? 0 : 4/this.camera.scale));
+                    ctx.strokeText(text, drawX, drawY); ctx.fillText(text, drawX, drawY);
+                    ctx.textAlign = 'left';
+                }
+            }
+        }
+
+        // --- 4. SYSTEM AUTO-BOOT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const dataLink = new DataLink();
+            const mapEngine = new MapEngine('tactical-canvas');
+            const statusIndicator = document.getElementById('status-indicator');
+            const controlsModule = document.getElementById('controls-module');
+            const panelTitle = document.getElementById('route-panel-title');
+            
+            const updateSelect = () => {
+                const select = document.getElementById('search-select');
+                const type = document.querySelector('input[name="find-type"]:checked').value;
+                const source = type === 'deed' ? dataLink.data.deeds : dataLink.data.specials;
+                
+                select.innerHTML = '';
+                source.sort((a,b) => a.name.localeCompare(b.name)).forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = `${item.x},${item.y}`; 
+                    opt.textContent = `${item.name} ${item.isHidden ? '[CAÍDA]' : ''}`;
+                    select.appendChild(opt);
+                });
+            };
+
+            const checkUrlParams = () => {
+                const params = new URLSearchParams(window.location.search);
+                if (params.has('x') && params.has('y')) {
+                    const x = parseInt(params.get('x')), y = parseInt(params.get('y'));
+                    if (!isNaN(x) && !isNaN(y)) {
+                        mapEngine.focusCamera(x, y, true);
+                        logger.log(`Link Direto Ativado: Focado em [${x}, ${y}]`);
+                    }
+                }
+            };
+
+            const bootSystem = async () => {
+                try {
+                    await dataLink.fetchDynamicData();
+                    mapEngine.loadData(dataLink.data);
+                    updateSelect();
+                    
+                    statusIndicator.innerHTML = '<span class="text-[#00ff66]">✓ Link Dinâmico Ativo</span>';
+                    statusIndicator.className = "w-full py-2 bg-transparent border border-[#00ff66] text-[#00ff66] font-mono text-sm flex items-center justify-center gap-2";
+                    controlsModule.classList.remove('opacity-50', 'pointer-events-none');
+
+                    checkUrlParams();
+                } catch (err) { logger.log(`ERRO: ${err.message}`, 'error'); }
+            };
+
+            bootSystem();
+
+            // Toggle Modes
+            document.querySelectorAll('input[name="interaction-mode"]').forEach(el => el.addEventListener('change', e => {
+                const mode = e.target.value;
+                mapEngine.updateConfig('root', 'mode', mode);
+                const panel = document.getElementById('route-panel');
+                
+                if (mode === 'ping') {
+                    mapEngine.clearRoute();
+                    panel.className = "bg-black/40 p-3 rounded border border-gray-800 transition-colors";
+                    panelTitle.className = "text-xs font-mono text-gray-500 mb-2 uppercase";
+                } else if (mode === 'route-straight') {
+                    panel.className = "bg-black/40 p-3 rounded border border-[#bf00ff]/50 shadow-[0_0_10px_rgba(191,0,255,0.1)] transition-colors";
+                    panelTitle.className = "text-xs font-mono text-[#bf00ff] mb-2 uppercase";
+                    document.getElementById('route-speed').className = "w-14 text-center text-[#bf00ff] border-[#bf00ff]";
+                    if(mapEngine.routePoints.length === 2) { mapEngine.calculateRoute(); mapEngine.scheduleRender(); }
+                } else if (mode === 'route-smart') {
+                    panel.className = "bg-black/40 p-3 rounded border border-[#ffaa00]/50 shadow-[0_0_10px_rgba(255,170,0,0.1)] transition-colors";
+                    panelTitle.className = "text-xs font-mono text-[#ffaa00] mb-2 uppercase";
+                    document.getElementById('route-speed').className = "w-14 text-center text-[#ffaa00] border-[#ffaa00]";
+                    if(mapEngine.routePoints.length === 2) { mapEngine.calculateRoute(); mapEngine.scheduleRender(); }
+                }
+            }));
+
+            // Trocar Map Type (Terrain vs Topo)
+            document.querySelectorAll('input[name="map-type"]').forEach(el => el.addEventListener('change', e => {
+                mapEngine.updateConfig('root', 'shader', e.target.value);
+            }));
+
+            // Trocador de Fonte para Busca (Deed vs Special)
+            document.querySelectorAll('input[name="find-type"]').forEach(el => el.addEventListener('change', updateSelect));
+
+            document.getElementById('btn-clear-route').addEventListener('click', () => mapEngine.clearRoute());
+            document.getElementById('route-speed').addEventListener('input', () => { if (mapEngine.routePoints.length === 2) mapEngine.calculateRoute(); });
+            
+            document.getElementById('btn-focus').addEventListener('click', () => {
+                const val = document.getElementById('search-select').value;
+                if(val) {
+                    const [x, y] = val.split(',').map(Number);
+                    mapEngine.focusCamera(x, y, true);
+                }
+            });
+
+            // Toggles
+            const bindCheck = (id, prop) => document.getElementById(id).addEventListener('change', e => mapEngine.updateConfig('layer', prop, e.target.checked));
+            bindCheck('l-deeds-active', 'deedsActive'); 
+            bindCheck('l-deeds-fallen', 'deedsFallen'); 
+            bindCheck('l-highways', 'highways'); 
+            bindCheck('l-bridges', 'bridges'); 
+            bindCheck('l-tunnels', 'tunnels'); 
+            bindCheck('l-specials', 'specials'); 
+            bindCheck('l-grid', 'grid');
+        });
+    </script>
+</body>
+</html>
