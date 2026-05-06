@@ -51,7 +51,7 @@
         <header class="p-5 neon-border-b bg-black/60 sticky top-0 z-30 flex justify-between items-start">
             <div>
                 <h1 class="text-3xl font-bold text-[#00f3ff] text-glow tracking-widest">GAMA HARMONY</h1>
-                <p class="text-[10px] font-mono text-gray-400 mt-1">A* PATHFINDING ENGINE v11.0</p>
+                <p class="text-[10px] font-mono text-gray-400 mt-1">A* PATHFINDING ENGINE v11.5</p>
             </div>
             <button id="close-sidebar-btn" class="md:hidden text-gray-400 hover:text-white pt-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -78,7 +78,8 @@
 
                 <!-- PAINEL DE ROTAS OTIMIZADAS -->
                 <section class="bg-black/40 p-3 rounded border border-[#bf00ff]/50 shadow-[0_0_10px_rgba(191,0,255,0.1)] transition-colors flex flex-col" id="route-panel">
-                    <h2 class="text-xs font-mono text-gray-200 mb-2 uppercase" id="route-panel-title">> Multi-Stop Routing</h2>
+                    <h2 class="text-xs font-mono text-gray-200 uppercase" id="route-panel-title">> Multi-Stop Routing</h2>
+                    <p class="text-[9px] font-mono text-gray-500 mb-2">Dica: Duplo-clique num ponto para torná-lo a origem.</p>
                     
                     <div id="route-list-ui" class="max-h-32 overflow-y-auto mb-2 space-y-1 dropdown-scroll pr-1"></div>
 
@@ -302,8 +303,8 @@
                 this.camera = { x: -1000, y: -1000, scale: 0.5 };
                 this.isDragging = false; this.dragStart = { x: 0, y: 0 };
                 
-                this.targetPing = null; // Animação temporária
-                this.persistentPing = null; // Cruz Azul persistente
+                this.targetPing = null; 
+                this.persistentPing = null; 
                 
                 this.routePoints = []; 
                 this.smartRoutePath = [];
@@ -404,7 +405,7 @@
                 }
                 
                 this.targetPing = { x, y, radius: 0 };
-                this.persistentPing = { x, y }; // Define o marcador fixo (Cruz Azul)
+                this.persistentPing = { x, y }; 
                 
                 document.getElementById('hud-selected').value = `X:${x}, Y:${y}`;
                 window.history.replaceState(null, '', `${window.location.pathname}?x=${x}&y=${y}`);
@@ -417,7 +418,7 @@
             optimizeRouteOrder() {
                 if (this.routePoints.length <= 2) return; 
                 
-                const optimized = [this.routePoints[0]]; // Ponto A fixo
+                const optimized = [this.routePoints[0]]; 
                 let unvisited = this.routePoints.slice(1);
                 
                 let current = optimized[0];
@@ -452,15 +453,31 @@
                 this.scheduleRender();
             }
 
+            // NOVA FUNÇÃO: Transforma ponto específico no Index 0
+            makeFirstRoutePoint(index) {
+                if (index <= 0 || index >= this.routePoints.length) return;
+                
+                const point = this.routePoints.splice(index, 1)[0];
+                this.routePoints.unshift(point);
+                
+                this.optimizeRouteOrder();
+                this.syncRouteUI();
+                this.calculateRoute();
+                this.scheduleRender();
+            }
+
             syncRouteUI() {
                 const container = document.getElementById('route-list-ui');
                 container.innerHTML = '';
                 this.routePoints.forEach((pt, i) => {
                     const el = document.createElement('div');
-                    el.className = "flex justify-between items-center bg-black/50 border border-gray-800 p-2 rounded";
+                    el.className = "flex justify-between items-center bg-black/50 border border-gray-800 p-2 rounded cursor-pointer hover:bg-white/5 transition-colors group";
+                    el.title = "Duplo-clique para definir como Ponto de Partida";
+                    el.ondblclick = () => window.makeFirstRP(i);
+                    
                     el.innerHTML = `
-                        <span class="text-xs text-gray-200 font-mono truncate"><strong class="text-[${i===0?'#00f3ff':'#ffaa00'}] mr-2">${String.fromCharCode(65+i)}:</strong> ${pt.name}</span>
-                        <button class="text-red-500 hover:text-red-400 px-2 text-sm font-bold" onclick="window.removeRP(${i})">×</button>
+                        <span class="text-xs text-gray-200 font-mono truncate select-none"><strong class="text-[${i===0?'#00f3ff':'#ffaa00'}] mr-2">${String.fromCharCode(65+i)}:</strong> ${pt.name}</span>
+                        <button class="text-red-500 hover:text-red-400 px-2 text-sm font-bold" onclick="window.removeRP(${i}); event.stopPropagation();">×</button>
                     `;
                     container.appendChild(el);
                 });
@@ -605,7 +622,6 @@
                 }
             }
 
-            // Função Helper para setas de direção
             drawDirectionArrow(ctx, x, y, angle, color) {
                 const size = 12 / this.camera.scale;
                 ctx.save();
@@ -644,9 +660,6 @@
                 if (this.config.layers.highways && this.data) drawSimplePath(this.data.highways, 'rgba(100,200,255,0.8)', 3);
                 if (this.config.layers.bridges && this.data) drawSimplePath(this.data.bridges, 'rgba(255,120,50,1)', 6);
 
-                // ==============================
-                // RENDERIZAR MULTI-ROTAS + SETAS
-                // ==============================
                 if (this.routePoints.length >= 2) {
                     const routeColor = this.config.mode === 'route-smart' ? '#ffaa00' : '#bf00ff';
                     
@@ -661,7 +674,6 @@
                         }
                         ctx.stroke(); ctx.setLineDash([]);
                         
-                        // Setas para Linha Reta
                         for (let i = 0; i < this.routePoints.length - 1; i++) {
                             const p1 = this.routePoints[i], p2 = this.routePoints[i+1];
                             const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
@@ -671,20 +683,16 @@
 
                     } else if (this.config.mode === 'route-smart') {
                         this.smartRoutePath.forEach(segment => {
-                            // Linhas Pontilhadas de aproximação
                             ctx.beginPath(); ctx.strokeStyle = routeColor; ctx.lineWidth = 3 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
                             ctx.moveTo(segment.start.x, segment.start.y); ctx.lineTo(segment.path[0].x, segment.path[0].y); ctx.stroke();
                             
-                            // Caminho Principal
                             ctx.beginPath(); ctx.lineWidth = 6 / this.camera.scale; ctx.setLineDash([]); 
                             ctx.moveTo(segment.path[0].x, segment.path[0].y);
                             segment.path.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.stroke();
                             
-                            // Linha Pontilhada de Saída
                             ctx.beginPath(); ctx.lineWidth = 3 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
                             ctx.moveTo(segment.path[segment.path.length - 1].x, segment.path[segment.path.length - 1].y); ctx.lineTo(segment.end.x, segment.end.y); ctx.stroke();
                             
-                            // Seta para Rota Inteligente (Acha o meio do segmento path)
                             if (segment.path.length >= 2) {
                                 const midIndex = Math.floor(segment.path.length / 2);
                                 const p1 = segment.path[Math.max(0, midIndex - 1)];
@@ -725,20 +733,14 @@
                     });
                 }
 
-                // Cruz Azul Persistente
                 if (this.persistentPing) {
                     const size = 15 / this.camera.scale;
-                    ctx.beginPath();
-                    ctx.strokeStyle = '#00f3ff';
-                    ctx.lineWidth = 3 / this.camera.scale;
-                    ctx.moveTo(this.persistentPing.x - size, this.persistentPing.y);
-                    ctx.lineTo(this.persistentPing.x + size, this.persistentPing.y);
-                    ctx.moveTo(this.persistentPing.x, this.persistentPing.y - size);
-                    ctx.lineTo(this.persistentPing.x, this.persistentPing.y + size);
+                    ctx.beginPath(); ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 3 / this.camera.scale;
+                    ctx.moveTo(this.persistentPing.x - size, this.persistentPing.y); ctx.lineTo(this.persistentPing.x + size, this.persistentPing.y);
+                    ctx.moveTo(this.persistentPing.x, this.persistentPing.y - size); ctx.lineTo(this.persistentPing.x, this.persistentPing.y + size);
                     ctx.stroke();
                 }
 
-                // Animação de Onda do Ping
                 if (this.targetPing) {
                     ctx.beginPath(); ctx.arc(this.targetPing.x, this.targetPing.y, this.targetPing.radius / this.camera.scale, 0, 6.28);
                     ctx.strokeStyle = `rgba(0, 243, 255, ${1 - (this.targetPing.radius/120)})`; ctx.lineWidth = 3 / this.camera.scale; ctx.stroke();
@@ -763,7 +765,9 @@
             const dataLink = new DataLink();
             const mapEngine = new MapEngine('tactical-canvas');
             
+            // Funções expostas globalmente para botões HTML inline
             window.removeRP = (i) => mapEngine.removeRoutePoint(i);
+            window.makeFirstRP = (i) => mapEngine.makeFirstRoutePoint(i);
 
             const sidebar = document.getElementById('sidebar');
             document.getElementById('mobile-menu-btn').addEventListener('click', () => sidebar.classList.remove('-translate-x-full'));
@@ -831,7 +835,6 @@
                     document.getElementById('status-indicator').className = "w-full py-2 bg-transparent border border-[#00ff66] text-[#00ff66] font-mono text-sm flex items-center justify-center gap-2";
                     document.getElementById('controls-module').classList.remove('opacity-50', 'pointer-events-none');
 
-                    // Check params post boot to show the persistent marker
                     const params = new URLSearchParams(window.location.search);
                     if (params.has('x') && params.has('y')) {
                         mapEngine.focusCamera(parseInt(params.get('x')), parseInt(params.get('y')), true, true);
