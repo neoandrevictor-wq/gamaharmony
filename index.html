@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -12,16 +14,14 @@
             --bg-base: #050505;
             --cyan: #00f3ff;
             --magenta: #bf00ff;
-            --orange: #ffaa00;
+            --orange: #ff7832; 
+            --blue: #00aaff;  
             --panel: rgba(10, 15, 20, 0.95);
         }
         body { background-color: var(--bg-base); color: #e0e0e0; font-family: 'Rajdhani', sans-serif; overflow: hidden; user-select: none; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
         
-        .cyber-panel {
-            background: var(--panel); backdrop-filter: blur(12px);
-            box-shadow: 0 0 20px rgba(0,0,0,0.9);
-        }
+        .cyber-panel { background: var(--panel); backdrop-filter: blur(12px); box-shadow: 0 0 20px rgba(0,0,0,0.9); }
         .neon-border-b { border-bottom: 2px solid var(--cyan); }
         .text-glow { text-shadow: 0 0 8px rgba(0, 243, 255, 0.6); }
         
@@ -49,6 +49,9 @@
 
         .paste-zone { background: rgba(0,0,0,0.4); border: 1px dashed var(--cyan); transition: all 0.3s; }
         .paste-zone.active { background: rgba(0, 243, 255, 0.1); box-shadow: 0 0 15px rgba(0, 243, 255, 0.2); }
+        
+        .leg-line { display: inline-block; width: 20px; height: 3px; vertical-align: middle; margin-right: 8px; }
+        .leg-dash { border-top: 3px dashed; height: 0; background: transparent !important; }
     </style>
 </head>
 <body class="h-screen w-screen flex relative overflow-hidden">
@@ -76,7 +79,7 @@
                         </optgroup>
                     </select>
                 </div>
-                <p class="text-[10px] font-mono text-gray-400 mt-2">A* PATHFINDING & S.D.E v14 (Valley Detector)</p>
+                <p class="text-[10px] font-mono text-gray-400 mt-2">A* PATHFINDING & S.D.E v14</p>
             </div>
             <button id="close-sidebar-btn" class="md:hidden text-gray-400 hover:text-white pt-1 ml-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -106,8 +109,9 @@
                     <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Modo Tático</h2>
                     <div class="flex flex-col gap-2 text-sm md:text-xs">
                         <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="ping" checked> 📡 Radar Ping</label>
-                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-straight" class="accent-[#bf00ff]"> 📏 Rota Direta (Auto-Otimizada)</label>
-                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-smart" class="accent-[#ffaa00]"> 🛣️ Rota Inteligente (Auto-Otimizada)</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-straight" class="accent-[#bf00ff]"> 📏 Rota Direta (Ponto-a-Ponto)</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-smart" class="accent-[var(--orange)]"> 🛣️ Rota Terrestre (Highways)</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-maritime" class="accent-[var(--blue)]"> ⚓ Rota Marítima (Oceano + Canais)</label>
                     </div>
                 </section>
 
@@ -194,18 +198,30 @@
                     <div class="grid grid-cols-2 gap-3 text-sm md:text-xs">
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-active" checked> <span class="text-[#00ff66]">Deed (Ativa)</span></label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-fallen" checked> <span class="text-[#ff003c]">Deed (Caída)</span></label>
-                        <label class="flex items-center gap-2"><input type="checkbox" id="l-highways" checked> Highways</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" id="l-bridges" checked> Bridges</label>
-                        <label class="flex items-center gap-2"><input type="checkbox" id="l-tunnels" checked> Tunnels</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-highways" checked> <span class="text-[var(--orange)]">Highways</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-bridges" checked> <span class="text-[var(--orange)] font-bold">Bridges</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-tunnels" checked> Tunnels (Land)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-canals" checked> <span class="text-[var(--blue)]">Canals (Water)</span></label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-specials"> Specials</label>
-                        <label class="flex items-center gap-2 col-span-2"><input type="checkbox" id="l-grid" checked> Grid Alfanumérico (G)</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-grid" checked> Grid Alfanumérico (G)</label>
                     </div>
                 </section>
-
+                
                 <section class="bg-black/40 p-3 rounded border border-gray-800">
-                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Coordenada Focada</h2>
-                    <input type="text" id="hud-selected" value="Aguardando..." readonly class="text-center font-bold tracking-widest text-[#00ff66] !border-gray-700">
+                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Legenda de Camadas</h2>
+                    <div class="flex flex-col gap-1 text-[11px] font-mono text-gray-300">
+                        <div><span class="leg-line" style="background:var(--orange);"></span> Highways</div>
+                        <div><span class="leg-line" style="background:var(--orange); height:6px;"></span> Bridges (Pontes)</div>
+                        <div><span class="leg-line leg-dash" style="border-color:#b4b4b4;"></span> Tunnels (Túneis de Terra)</div>
+                        <div><span class="leg-line" style="background:var(--blue); height:4px;"></span> Canals (Água)</div>
+                        <div>
+                            <span class="leg-line leg-dash" style="border-color:var(--blue); margin-right:0;"></span>
+                            <span class="leg-line leg-dash" style="border-color:#ff003c; position:relative; left:-20px;"></span> 
+                            Canals in Tunnels (Barcos em Caverna)
+                        </div>
+                    </div>
                 </section>
+                
             </div>
         </div>
     </aside>
@@ -277,7 +293,7 @@
             isEmpty() { return this.heap.length === 0; }
         }
 
-        // --- 2. S.D.E V14 (VALLEY DETECTOR & CROP FIX) ---
+        // --- 2. S.D.E V14 ---
         class VisionEngine {
             static fileToImage(file) {
                 return new Promise((resolve) => {
@@ -300,13 +316,11 @@
                 return count > 5 ? { x: Math.round(sumX / count), y: Math.round(sumY / count) } : { x: Math.floor(width/2), y: Math.floor(height/2) };
             }
 
-            // V14: Identifica vales escuros (linhas de topografia e estradas) ignorando a cor de fundo
             static extractFeatures(canvasSource, isFragment, anchorX = 0, anchorY = 0) {
                 const width = canvasSource.width;
                 const height = canvasSource.height;
                 const ctx = canvasSource.getContext('2d', { willReadFrequently: true });
                 
-                // Variáveis para rastrear o corte (MUITO IMPORTANTE PARA ALINHAR DEPOIS)
                 let cropX = 0, cropY = 0, cropW = width, cropH = height;
                 let targetOrig = { x: width/2, y: height/2 };
 
@@ -326,7 +340,7 @@
                 }
 
                 const maskRadius = isFragment ? Math.max(25, cropW * 0.08) : 0;
-                const step = 2; // Distância do vizinho para comparar (Cria espessura nas linhas)
+                const step = 2;
 
                 for (let y = step; y < cropH - step; y++) {
                     for (let x = step; x < cropW - step; x++) {
@@ -347,7 +361,6 @@
                             grayscale[idx + step * cropW]
                         ) / 4;
 
-                        // Se o pixel atual for notavelmente mais escuro que os vizinhos = é uma linha/estrada
                         if (center < surround - 8) {
                             features[idx] = 1; 
                         } else {
@@ -356,10 +369,7 @@
                     }
                 }
 
-                return { 
-                    data: features, width: cropW, height: cropH, 
-                    cropX: cropX, cropY: cropY // Salva as coordenadas do corte para compensar depois!
-                };
+                return { data: features, width: cropW, height: cropH, cropX: cropX, cropY: cropY };
             }
 
             static resizeCanvas(originalCanvas, scale) {
@@ -382,14 +392,11 @@
                     logger.sdeLog(`SDE V14: Lendo malha topográfica e rodovias...`);
                     
                     const haystack = VisionEngine.extractFeatures(strictViewportCanvas, false);
-                    
                     const COARSE_SCALES = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5];
                     const COARSE_STRIDE = 4;
                     
                     let bestCoarse = { conf: 0, x: 0, y: 0, scale: 0, needle: null };
-                    let scaleIdx = 0;
-                    let sy = 0;
-                    let currentNeedle = null;
+                    let scaleIdx = 0; let sy = 0; let currentNeedle = null;
 
                     const setupCoarseScale = () => {
                         while (scaleIdx < COARSE_SCALES.length) {
@@ -397,11 +404,8 @@
                             const resizedFrag = VisionEngine.resizeCanvas(fragCanvas, s);
                             if(resizedFrag.width >= haystack.width || resizedFrag.height >= haystack.height) { scaleIdx++; continue; }
                             
-                            const cAnchX = originalAnchorX * s;
-                            const cAnchY = originalAnchorY * s;
-                            currentNeedle = VisionEngine.extractFeatures(resizedFrag, true, cAnchX, cAnchY);
-                            sy = 0; 
-                            return true;
+                            currentNeedle = VisionEngine.extractFeatures(resizedFrag, true, originalAnchorX * s, originalAnchorY * s);
+                            sy = 0; return true;
                         }
                         return false;
                     };
@@ -419,9 +423,7 @@
 
                         for (; sy < endY; sy += COARSE_STRIDE) {
                             for (let sx = 0; sx <= maxSx; sx += COARSE_STRIDE) {
-                                let matchCount = 0; 
-                                let needlePts = 0;
-                                let haystackPenalty = 0;
+                                let matchCount = 0; let needlePts = 0; let haystackPenalty = 0;
 
                                 for (let ty = 0; ty < currentNeedle.height; ty += 2) {
                                     for (let tx = 0; tx < currentNeedle.width; tx += 2) {
@@ -429,22 +431,12 @@
                                         if (nVal === -1) continue; 
                                         
                                         const hVal = haystack.data[((sy + ty) * haystack.width) + (sx + tx)];
-                                        
-                                        if (nVal === 1) { 
-                                            needlePts++;
-                                            if (hVal === 1) matchCount++; 
-                                        } else if (nVal === 0 && hVal === 1) {
-                                            haystackPenalty++; // Punição por lixo embaixo do mapa onde deveria estar limpo
-                                        }
+                                        if (nVal === 1) { needlePts++; if (hVal === 1) matchCount++; } 
+                                        else if (nVal === 0 && hVal === 1) { haystackPenalty++; }
                                     }
                                 }
-                                
-                                // Score com punição de falsos positivos
                                 const score = needlePts > 0 ? (matchCount - (haystackPenalty * 0.15)) / needlePts : 0;
-                                
-                                if (score > bestCoarse.conf) {
-                                    bestCoarse = { conf: score, x: sx, y: sy, scale: COARSE_SCALES[scaleIdx], needle: currentNeedle };
-                                }
+                                if (score > bestCoarse.conf) bestCoarse = { conf: score, x: sx, y: sy, scale: COARSE_SCALES[scaleIdx], needle: currentNeedle };
                             }
                         }
 
@@ -456,7 +448,7 @@
                     };
 
                     const startFinePass = () => {
-                        if (bestCoarse.conf < 0.05) { // Threshold baixado porque o novo score é mais rigoroso (penalizado)
+                        if (bestCoarse.conf < 0.05) {
                             logger.sdeLog(`Local não encontrado nesta tela. Use o Botão Manual ou mova o mapa.`, 'text-red-400');
                             this.isScanning = false; resolve(null); return;
                         }
@@ -464,9 +456,7 @@
                         const FINE_SCALES = [];
                         for (let s = bestCoarse.scale - 0.08; s <= bestCoarse.scale + 0.08; s += 0.02) { if (s > 0) FINE_SCALES.push(s); }
 
-                        let fineIdx = 0;
-                        let bestFine = null;
-                        const searchRadius = 15;
+                        let fineIdx = 0; let bestFine = null; const searchRadius = 15;
                         
                         const processFine = () => {
                             if (fineIdx >= FINE_SCALES.length) { finalizeScan(bestFine || bestCoarse); return; }
@@ -475,9 +465,7 @@
                             const resizedFrag = VisionEngine.resizeCanvas(fragCanvas, s);
                             
                             if(resizedFrag.width < haystack.width && resizedFrag.height < haystack.height) {
-                                const cAnchX = originalAnchorX * s; const cAnchY = originalAnchorY * s;
-                                const needle = VisionEngine.extractFeatures(resizedFrag, true, cAnchX, cAnchY);
-                                
+                                const needle = VisionEngine.extractFeatures(resizedFrag, true, originalAnchorX * s, originalAnchorY * s);
                                 const startY = Math.max(0, bestCoarse.y - searchRadius);
                                 const endY = Math.min(haystack.height - needle.height, bestCoarse.y + searchRadius);
                                 const startX = Math.max(0, bestCoarse.x - searchRadius);
@@ -486,57 +474,33 @@
                                 for (let fy = startY; fy <= endY; fy++) {
                                     for (let fx = startX; fx <= endX; fx++) {
                                         let matchCount = 0; let needlePts = 0; let haystackPenalty = 0;
-                                        
                                         for (let ty = 0; ty < needle.height; ty++) {
                                             for (let tx = 0; tx < needle.width; tx++) {
                                                 const nVal = needle.data[ty * needle.width + tx];
                                                 if (nVal === -1) continue; 
                                                 const hVal = haystack.data[((fy + ty) * haystack.width) + (fx + tx)];
-                                                
-                                                if (nVal === 1) { 
-                                                    needlePts++;
-                                                    if (hVal === 1) matchCount++; 
-                                                } else if (nVal === 0 && hVal === 1) {
-                                                    haystackPenalty++;
-                                                }
+                                                if (nVal === 1) { needlePts++; if (hVal === 1) matchCount++; } 
+                                                else if (nVal === 0 && hVal === 1) { haystackPenalty++; }
                                             }
                                         }
                                         const score = needlePts > 0 ? (matchCount - (haystackPenalty * 0.15)) / needlePts : 0;
-                                        
-                                        if (!bestFine || score > bestFine.conf) {
-                                            bestFine = { conf: score, x: fx, y: fy, scale: s, needle: needle };
-                                        }
+                                        if (!bestFine || score > bestFine.conf) bestFine = { conf: score, x: fx, y: fy, scale: s, needle: needle };
                                     }
                                 }
                             }
 
                             const prog = 50 + ((fineIdx / FINE_SCALES.length) * 50);
                             if(onProgress) onProgress(prog.toFixed(0));
-
-                            fineIdx++;
-                            requestAnimationFrame(processFine);
+                            fineIdx++; requestAnimationFrame(processFine);
                         };
-
                         requestAnimationFrame(processFine);
                     };
 
                     const finalizeScan = (result) => {
                         this.isScanning = false;
-                        if (!result || result.conf < 0.08) { 
-                            logger.sdeLog(`Baixa confiança de alinhamento. Tente Projeção Manual.`, 'text-red-400');
-                            resolve(null); return; 
-                        }
-                        
+                        if (!result || result.conf < 0.08) { logger.sdeLog(`Baixa confiança de alinhamento. Tente Projeção Manual.`, 'text-red-400'); resolve(null); return; }
                         logger.sdeLog(`ALVO ENCONTRADO! Compensando margens de corte...`, 'text-[#00ff66]');
-                        
-                        // V14 CORREÇÃO CRÍTICA DO BUG DE OFFSET:
-                        // O scanner achou a posição (result.x, result.y) do mapa RECORTADO.
-                        // Para desenhar a imagem INTEIRA perfeitamente, precisamos recuar a posição
-                        // subtraindo o tanto que foi cortado.
-                        const fullImageTopLeftX = result.x - result.needle.cropX;
-                        const fullImageTopLeftY = result.y - result.needle.cropY;
-
-                        resolve({ x: fullImageTopLeftX, y: fullImageTopLeftY, scale: result.scale });
+                        resolve({ x: result.x - result.needle.cropX, y: result.y - result.needle.cropY, scale: result.scale });
                     };
                     
                     requestAnimationFrame(processCoarse);
@@ -546,10 +510,12 @@
 
         // --- 3. DATA FETCHER & GRAPH BUILDER ---
         class DataLink {
-            constructor() { this.data = { deeds: [], highways: [], bridges: [], tunnels: [], specials: [], graph: new Map(), nodes: [] }; }
+            constructor() { 
+                this.data = { deeds: [], highways: [], bridges: [], tunnels: [], canals: [], canalTunnels: [], specials: [], graph: new Map(), nodes: [], waterGraph: new Map(), waterNodes: [] }; 
+            }
 
             async fetchDynamicData(serverName) {
-                this.data = { deeds: [], highways: [], bridges: [], tunnels: [], specials: [], graph: new Map(), nodes: [] };
+                this.data = { deeds: [], highways: [], bridges: [], tunnels: [], canals: [], canalTunnels: [], specials: [], graph: new Map(), nodes: [], waterGraph: new Map(), waterNodes: [] };
                 let htmlRaw = null;
                 try {
                     const proxies = [`https://api.codetabs.com/v1/proxy/?quest=https://${serverName}.yaga.host`, `https://corsproxy.io/?https://${serverName}.yaga.host`];
@@ -565,21 +531,48 @@
                 return new Promise(resolve => {
                     setTimeout(() => {
                         const getTab = name => rawJson.valueRanges.find(r => r.range.includes(name))?.values || [];
+                        
                         this.data.deeds = getTab("Deeds").map(row => ({ name: row[0], x: parseInt(row[1]), y: parseInt(row[2]), isHidden: row[3] === "HID" || row[3] === "RIG" })).filter(d => !isNaN(d.x));
+                        
+                        const CUSTOM_DEEDS = [{ name: "Baroque Works", x: 2636, y: 2301, isHidden: false }];
+                        this.data.deeds.push(...CUSTOM_DEEDS);
+
                         this.data.specials = getTab("Special").map(row => ({ name: row[0], x: parseInt(row[1]), y: parseInt(row[2]) })).filter(s => !isNaN(s.x));
-                        const parsePath = row => { try { return { name: row[0], path: JSON.parse(row[1]) }; } catch(e) { return null; } };
-                        this.data.highways = getTab("Highways").map(parsePath).filter(v=>v);
+                        
+                        const parsePathJSON = row => { try { return { name: row[0], path: JSON.parse(row[1]) }; } catch(e) { return null; } };
+                        this.data.highways = getTab("Highways").map(parsePathJSON).filter(v=>v);
+                        
                         const parseSegment = row => { if(row.length >= 5) return { name: row[0], path: [ [parseInt(row[1]), parseInt(row[2])], [parseInt(row[3]), parseInt(row[4])] ] }; return null; };
                         this.data.bridges = getTab("Bridges").map(parseSegment).filter(v=>v);
-                        this.data.tunnels = getTab("Tunnels").map(parseSegment).filter(v=>v);
-                        this.buildGraph(); resolve();
+                        
+                        const rawTunnels = getTab("Tunnels");
+                        rawTunnels.forEach(row => {
+                            if (row.length >= 5) {
+                                const isWater = row[5] === "TRUE";
+                                const isTunnel = row[6] === "TRUE";
+                                const pathObj = { name: row[0], path: [ [parseInt(row[1]), parseInt(row[2])], [parseInt(row[3]), parseInt(row[4])] ] };
+                                
+                                if (isWater && isTunnel) {
+                                    this.data.canalTunnels.push(pathObj);
+                                } else if (isWater) {
+                                    this.data.canals.push(pathObj);
+                                } else {
+                                    this.data.tunnels.push(pathObj);
+                                }
+                            }
+                        });
+                        
+                        this.buildLandGraph(); 
+                        this.buildWaterGraph(); 
+                        resolve();
                     }, 50);
                 });
             }
 
-            buildGraph() {
-                this.data.graph.clear(); this.data.nodes = []; let nodeId = 0;
-                const spatialGrid = new Map(), cellSize = 50, maxConnectionDist = 15, interpolateStep = 10; 
+            buildLandGraph() {
+                this.data.graph.clear(); this.data.nodes = [];
+                let nodeId = 0; const spatialGrid = new Map();
+                const cellSize = 50, maxConnectionDist = 15, interpolateStep = 10; 
 
                 const createNode = (x, y) => {
                     const node = { id: nodeId++, x, y }; this.data.nodes.push(node); this.data.graph.set(node.id, []);
@@ -596,6 +589,7 @@
                 };
 
                 const processPaths = (paths) => {
+                    if (!paths) return;
                     paths.forEach(r => {
                         let prevNode = null;
                         for (let i = 0; i < r.path.length - 1; i++) {
@@ -610,6 +604,7 @@
                         }
                     });
                 };
+                
                 processPaths(this.data.highways); processPaths(this.data.bridges); processPaths(this.data.tunnels);
 
                 for (const node of this.data.nodes) {
@@ -619,7 +614,64 @@
                             const neighborCells = spatialGrid.get(`${gx + dx},${gy + dy}`);
                             if (neighborCells) {
                                 for (const otherNode of neighborCells) {
-                                    if (node.id !== otherNode.id && Math.hypot(otherNode.x - node.x, otherNode.y - node.y) <= maxConnectionDist) addEdge(node, otherNode);
+                                    if (node.id !== otherNode.id && Math.hypot(otherNode.x - node.x, otherNode.y - node.y) <= maxConnectionDist) {
+                                        addEdge(node, otherNode);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            buildWaterGraph() {
+                this.data.waterGraph.clear(); this.data.waterNodes = [];
+                let nodeId = 0; const spatialGrid = new Map();
+                const cellSize = 50, maxConnectionDist = 15, interpolateStep = 10; 
+
+                const createNode = (x, y) => {
+                    const node = { id: nodeId++, x, y }; this.data.waterNodes.push(node); this.data.waterGraph.set(node.id, []);
+                    const gKey = `${Math.floor(x/cellSize)},${Math.floor(y/cellSize)}`;
+                    if(!spatialGrid.has(gKey)) spatialGrid.set(gKey, []); spatialGrid.get(gKey).push(node);
+                    return node;
+                };
+
+                const addEdge = (n1, n2) => {
+                    if (n1.id === n2.id) return;
+                    const dist = Math.hypot(n2.x - n1.x, n2.y - n1.y);
+                    const edges1 = this.data.waterGraph.get(n1.id); if (!edges1.find(e => e.target === n2.id)) edges1.push({ target: n2.id, weight: dist });
+                    const edges2 = this.data.waterGraph.get(n2.id); if (!edges2.find(e => e.target === n1.id)) edges2.push({ target: n1.id, weight: dist });
+                };
+
+                const processPaths = (paths) => {
+                    if (!paths) return;
+                    paths.forEach(r => {
+                        let prevNode = null;
+                        for (let i = 0; i < r.path.length - 1; i++) {
+                            const p1 = r.path[i], p2 = r.path[i+1];
+                            if (!p1 || !p2 || isNaN(p1[0]) || isNaN(p2[0])) continue;
+                            const dist = Math.hypot(p2[0]-p1[0], p2[1]-p1[1]);
+                            const steps = Math.max(1, Math.ceil(dist / interpolateStep));
+                            for (let j = 0; j <= steps; j++) {
+                                const t = j / steps; const currNode = createNode(p1[0] + (p2[0] - p1[0]) * t, p1[1] + (p2[1] - p1[1]) * t);
+                                if (prevNode) addEdge(prevNode, currNode); prevNode = currNode;
+                            }
+                        }
+                    });
+                };
+                
+                processPaths(this.data.canals); processPaths(this.data.canalTunnels);
+
+                for (const node of this.data.waterNodes) {
+                    const gx = Math.floor(node.x / cellSize), gy = Math.floor(node.y / cellSize);
+                    for (let dx = -1; dx <= 1; dx++) {
+                        for (let dy = -1; dy <= 1; dy++) {
+                            const neighborCells = spatialGrid.get(`${gx + dx},${gy + dy}`);
+                            if (neighborCells) {
+                                for (const otherNode of neighborCells) {
+                                    if (node.id !== otherNode.id && Math.hypot(otherNode.x - node.x, node.y - node.y) <= maxConnectionDist) {
+                                        addEdge(node, otherNode);
+                                    }
                                 }
                             }
                         }
@@ -628,7 +680,7 @@
             }
         }
 
-        // --- 4. SATELLITE MAP ENGINE ---
+        // --- 4. SATELLITE MAP ENGINE & RENDERER ---
         class MapEngine {
             constructor(canvasId) {
                 this.canvas = document.getElementById(canvasId);
@@ -638,47 +690,146 @@
                 this.data = null;
                 this.assets = { terrain: new Image(), topo: new Image() };
 
-                this.config = { mode: 'ping', shader: 'terrain', layers: { deedsActive: true, deedsFallen: true, highways: true, bridges: true, tunnels: true, specials: false, grid: true } };
+                this.config = { mode: 'ping', shader: 'terrain', layers: { deedsActive: true, deedsFallen: true, highways: true, bridges: true, tunnels: true, canals: true, specials: false, grid: true } };
                 this.camera = { x: -1000, y: -1000, scale: 0.5 };
                 
-                this.isDragging = false; 
-                this.dragStart = { x: 0, y: 0 };
-                
-                this.targetPing = null; 
-                this.persistentPing = null; 
-                
-                this.routePoints = []; 
-                this.smartRoutePath = [];
+                this.isDragging = false; this.dragStart = { x: 0, y: 0 };
+                this.targetPing = null; this.persistentPing = null; 
+                this.routePoints = []; this.smartRoutePath = [];
+                this.routeCalcId = 0; 
 
-                this.overlayImage = null;
-                this.overlayX = 0; 
-                this.overlayY = 0; 
-                this.overlayScale = 1.0;
-                this.overlayOpacity = 0.65;
-                
-                this.isDraggingOverlay = false;
-                this.overlayDragOffset = { x: 0, y: 0 }; 
+                this.overlayImage = null; this.overlayX = 0; this.overlayY = 0; 
+                this.overlayScale = 1.0; this.overlayOpacity = 0.65;
+                this.isDraggingOverlay = false; this.overlayDragOffset = { x: 0, y: 0 }; 
+
+                this.waterGridAttempted = false;
+                this.waterGridBuilt = false;
+                this.gridCellSize = 15; 
+                this.waterGrid = null;
+                this.gridCols = 0; this.gridRows = 0;
+                this.gridToVectorEdges = new Map(); // Mapa Híbrido
 
                 this.initEvents();
                 new ResizeObserver(() => this.resize()).observe(this.container);
             }
 
             loadAssets(serverName) {
+                this.waterGridAttempted = false;
+                this.waterGridBuilt = false;
                 const loadWithCORS = (img, url) => {
                     img.crossOrigin = "Anonymous";
                     const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${url}`;
                     const backupProxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-                    
                     img.onload = () => { this.scheduleRender(); };
-                    img.onerror = () => { 
-                        if (img.src !== backupProxy) { img.src = backupProxy; } 
-                        else { console.error(`[CORS] Erro ao carregar: ${url}`); }
-                    };
+                    img.onerror = () => { if (img.src !== backupProxy) img.src = backupProxy; else console.error(`[CORS] Erro ao carregar: ${url}`); };
                     img.src = proxyUrl;
                 };
-
                 loadWithCORS(this.assets.terrain, `https://${serverName}.yaga.host/${serverName}-terrain.png`);
                 loadWithCORS(this.assets.topo, `https://${serverName}.yaga.host/${serverName}-topo.png`);
+            }
+
+            buildOceanGrid() {
+                if (this.waterGridAttempted) return;
+                this.waterGridAttempted = true;
+
+                const img = this.assets.topo; 
+                if (!img || !img.complete || img.naturalWidth === 0) {
+                    this.waterGridAttempted = false; 
+                    return;
+                }
+
+                this.gridCols = Math.ceil(img.naturalWidth / this.gridCellSize);
+                this.gridRows = Math.ceil(img.naturalHeight / this.gridCellSize);
+                this.waterGrid = new Uint8Array(this.gridCols * this.gridRows);
+                this.gridToVectorEdges.clear();
+
+                try {
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = img.naturalWidth; tempCanvas.height = img.naturalHeight;
+                    const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
+                    ctx.drawImage(img, 0, 0);
+                    const imgData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+
+                    // Rasteriza o Oceano Natural
+                    for (let y = 0; y < this.gridRows; y++) {
+                        for (let x = 0; x < this.gridCols; x++) {
+                            const px = Math.min(x * this.gridCellSize + Math.floor(this.gridCellSize / 2), tempCanvas.width - 1);
+                            const py = Math.min(y * this.gridCellSize + Math.floor(this.gridCellSize / 2), tempCanvas.height - 1);
+                            const idx = (py * tempCanvas.width + px) * 4;
+                            const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
+
+                            if (b > 50 && b > r + 10 && b > g + 5 && r < 120) {
+                                this.waterGrid[y * this.gridCols + x] = 1;
+                            }
+                        }
+                    }
+
+                    // A MAGICA HYBRIDA: Configura os saltos vetoriais
+                    if (this.data && this.data.waterNodes) {
+                        this.data.waterNodes.forEach(node => {
+                            const gx = Math.floor(node.x / this.gridCellSize);
+                            const gy = Math.floor(node.y / this.gridCellSize);
+                            const idx = gy * this.gridCols + gx;
+                            
+                            const edges = this.data.waterGraph.get(node.id) || [];
+                            const validEdges = [];
+                            
+                            edges.forEach(e => {
+                                const tNode = this.data.waterNodes[e.target];
+                                const tgx = Math.floor(tNode.x / this.gridCellSize);
+                                const tgy = Math.floor(tNode.y / this.gridCellSize);
+                                const tidx = tgy * this.gridCols + tgx;
+                                validEdges.push({ tidx: tidx, weight: e.weight, exactX: tNode.x, exactY: tNode.y });
+                            });
+                            
+                            if (validEdges.length > 0) {
+                                if (!this.gridToVectorEdges.has(idx)) this.gridToVectorEdges.set(idx, []);
+                                this.gridToVectorEdges.get(idx).push(...validEdges);
+                            }
+                            
+                            // Queima um canal inquebrável para o Grid se conectar ao vetor
+                            for(let dy=-1; dy<=1; dy++) {
+                                for(let dx=-1; dx<=1; dx++) {
+                                    const nx = gx + dx, ny = gy + dy;
+                                    if (nx >= 0 && ny >= 0 && nx < this.gridCols && ny < this.gridRows) {
+                                        this.waterGrid[ny * this.gridCols + nx] = 2;
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    this.waterGridBuilt = true;
+                    if(this.config.mode === 'route-maritime' && this.routePoints.length >= 2) {
+                        this.calculateRoute();
+                    }
+
+                } catch (e) {
+                    console.error("Não foi possível gerar a malha de água.", e);
+                }
+            }
+
+            hasWaterLineOfSight(p1, p2) {
+                const CELL = this.gridCellSize;
+                let x0 = Math.floor(p1.x / CELL); let y0 = Math.floor(p1.y / CELL);
+                let x1 = Math.floor(p2.x / CELL); let y1 = Math.floor(p2.y / CELL);
+                
+                let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+                let sx = (x0 < x1) ? 1 : -1, sy = (y0 < y1) ? 1 : -1;
+                let err = dx - dy;
+
+                while (true) {
+                    if (x0 < 0 || y0 < 0 || x0 >= this.gridCols || y0 >= this.gridRows) return false;
+                    const cellVal = this.waterGrid[y0 * this.gridCols + x0];
+                    if (cellVal === 0) return false; // Bateu na terra
+                    if (cellVal === 2) return false; // Nao corta caminho no canal, preserva a curva vetorial original
+
+                    if (x0 === x1 && y0 === y1) break;
+                    let e2 = 2 * err;
+                    if (e2 > -dy) { err -= dy; x0 += sx; }
+                    if (e2 < dx) { err += dx; y0 += sy; }
+                }
+                return true;
             }
 
             getStrictViewportCanvas() {
@@ -687,51 +838,37 @@
 
                 const viewW = this.canvas.width / this.camera.scale;
                 const viewH = this.canvas.height / this.camera.scale;
-                
                 const startX = -this.camera.x / this.camera.scale;
                 const startY = -this.camera.y / this.camera.scale;
 
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = viewW; tempCanvas.height = viewH;
                 const ctx = tempCanvas.getContext('2d');
-                
                 ctx.drawImage(img, startX, startY, viewW, viewH, 0, 0, viewW, viewH);
-                
                 return { canvas: tempCanvas, globalStartX: startX, globalStartY: startY };
             }
 
-            // V14: Posição absoluta da borda superior esquerda já compensada pelo corte
             setOverlay(image, globalX, globalY, scale) {
-                this.overlayImage = image;
-                this.overlayScale = scale;
-                this.overlayX = globalX;
-                this.overlayY = globalY;
-                this.scheduleRender();
+                this.overlayImage = image; this.overlayScale = scale;
+                this.overlayX = globalX; this.overlayY = globalY; this.scheduleRender();
             }
 
             spawnManualOverlay(image) {
-                this.overlayImage = image;
-                this.overlayScale = 1.0;
-                
+                this.overlayImage = image; this.overlayScale = 1.0;
                 const centerGlobalX = (-this.camera.x + (this.canvas.width / 2)) / this.camera.scale;
                 const centerGlobalY = (-this.camera.y + (this.canvas.height / 2)) / this.camera.scale;
-
                 this.overlayX = centerGlobalX - ((image.width * this.overlayScale) / 2);
                 this.overlayY = centerGlobalY - ((image.height * this.overlayScale) / 2);
-                
                 this.scheduleRender();
             }
 
             clearOverlay() {
-                this.overlayImage = null;
-                this.isDraggingOverlay = false;
-                this.scheduleRender();
+                this.overlayImage = null; this.isDraggingOverlay = false; this.scheduleRender();
             }
 
             isMouseOverOverlay(gx, gy) {
                 if (!this.overlayImage) return false;
-                const ow = this.overlayImage.width * this.overlayScale;
-                const oh = this.overlayImage.height * this.overlayScale;
+                const ow = this.overlayImage.width * this.overlayScale; const oh = this.overlayImage.height * this.overlayScale;
                 return (gx >= this.overlayX && gx <= this.overlayX + ow && gy >= this.overlayY && gy <= this.overlayY + oh);
             }
 
@@ -744,46 +881,32 @@
                     const my = (e.clientY - rect.top - this.camera.y) / this.camera.scale;
 
                     if (this.overlayImage && this.overlayOpacity > 0 && this.isMouseOverOverlay(mx, my)) {
-                        this.isDraggingOverlay = true;
-                        this.overlayDragOffset = { x: mx - this.overlayX, y: my - this.overlayY };
+                        this.isDraggingOverlay = true; this.overlayDragOffset = { x: mx - this.overlayX, y: my - this.overlayY };
                         this.canvas.style.cursor = 'grabbing';
                     } else {
-                        this.isDragging = true; 
-                        clickStartPos = { x: e.clientX, y: e.clientY };
+                        this.isDragging = true; clickStartPos = { x: e.clientX, y: e.clientY };
                         this.dragStart = { x: e.clientX - this.camera.x, y: e.clientY - this.camera.y };
                     }
                 });
 
-                window.addEventListener('mouseup', () => {
-                    this.isDragging = false;
-                    this.isDraggingOverlay = false;
-                    this.canvas.style.cursor = 'crosshair';
-                });
+                window.addEventListener('mouseup', () => { this.isDragging = false; this.isDraggingOverlay = false; this.canvas.style.cursor = 'crosshair'; });
 
                 this.canvas.addEventListener('mousemove', e => {
                     const rect = this.container.getBoundingClientRect();
                     const gx = (e.clientX - rect.left - this.camera.x) / this.camera.scale;
                     const gy = (e.clientY - rect.top - this.camera.y) / this.camera.scale;
-                    
                     const hudMouse = document.getElementById('hud-mouse');
                     if(hudMouse) hudMouse.textContent = `X:${Math.round(gx)} Y:${Math.round(gy)}`;
 
                     if (!this.isDragging && !this.isDraggingOverlay) {
-                        if (this.overlayImage && this.overlayOpacity > 0 && this.isMouseOverOverlay(gx, gy)) {
-                            this.canvas.style.cursor = 'grab';
-                        } else {
-                            this.canvas.style.cursor = 'crosshair';
-                        }
+                        if (this.overlayImage && this.overlayOpacity > 0 && this.isMouseOverOverlay(gx, gy)) { this.canvas.style.cursor = 'grab'; } 
+                        else { this.canvas.style.cursor = 'crosshair'; }
                     }
 
                     if (this.isDraggingOverlay) {
-                        this.overlayX = gx - this.overlayDragOffset.x;
-                        this.overlayY = gy - this.overlayDragOffset.y;
-                        this.scheduleRender();
+                        this.overlayX = gx - this.overlayDragOffset.x; this.overlayY = gy - this.overlayDragOffset.y; this.scheduleRender();
                     } else if (this.isDragging) { 
-                        this.camera.x = e.clientX - this.dragStart.x; 
-                        this.camera.y = e.clientY - this.dragStart.y; 
-                        this.scheduleRender(); 
+                        this.camera.x = e.clientX - this.dragStart.x; this.camera.y = e.clientY - this.dragStart.y; this.scheduleRender(); 
                     }
                 });
 
@@ -809,8 +932,7 @@
                         const my = (e.touches[0].clientY - rect.top - this.camera.y) / this.camera.scale;
 
                         if (this.overlayImage && this.overlayOpacity > 0 && this.isMouseOverOverlay(mx, my)) {
-                            this.isDraggingOverlay = true;
-                            this.overlayDragOffset = { x: mx - this.overlayX, y: my - this.overlayY };
+                            this.isDraggingOverlay = true; this.overlayDragOffset = { x: mx - this.overlayX, y: my - this.overlayY };
                         } else {
                             this.isDragging = true; clickStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                             this.dragStart = { x: e.touches[0].clientX - this.camera.x, y: e.touches[0].clientY - this.camera.y };
@@ -838,9 +960,7 @@
                     } else if (this.isDraggingOverlay && e.touches.length === 1) {
                         const gx = (e.touches[0].clientX - rect.left - this.camera.x) / this.camera.scale;
                         const gy = (e.touches[0].clientY - rect.top - this.camera.y) / this.camera.scale;
-                        this.overlayX = gx - this.overlayDragOffset.x;
-                        this.overlayY = gy - this.overlayDragOffset.y;
-                        this.scheduleRender();
+                        this.overlayX = gx - this.overlayDragOffset.x; this.overlayY = gy - this.overlayDragOffset.y; this.scheduleRender();
                     } else if (this.isDragging && e.touches.length === 1) {
                         this.camera.x = e.touches[0].clientX - this.dragStart.x; this.camera.y = e.touches[0].clientY - this.dragStart.y; this.scheduleRender();
                     }
@@ -848,6 +968,7 @@
                 
                 this.canvas.addEventListener('touchend', e => { 
                     if (e.touches.length < 2) isPinching = false; 
+                    if (e.touches.length === 1 && this.isDragging) { this.dragStart = { x: e.touches[0].clientX - this.camera.x, y: e.touches[0].clientY - this.camera.y }; }
                     if (e.touches.length === 0) { this.isDragging = false; this.isDraggingOverlay = false; } 
                 });
 
@@ -857,11 +978,8 @@
                     const x = Math.round((e.clientX - rect.left - this.camera.x) / this.camera.scale);
                     const y = Math.round((e.clientY - rect.top - this.camera.y) / this.camera.scale);
                     
-                    if (this.config.mode === 'ping') {
-                        this.focusCamera(x, y, false, false);
-                    } else if (this.config.mode.startsWith('route')) {
-                        this.addRoutePoint(x, y, `${x},${y}`);
-                    }
+                    if (this.config.mode === 'ping') { this.focusCamera(x, y, false, false); } 
+                    else if (this.config.mode.startsWith('route')) { this.addRoutePoint(x, y, `${x},${y}`); }
                 });
             }
 
@@ -884,15 +1002,12 @@
                     this.camera.x = Math.floor((this.canvas.width / 2) - (x * this.camera.scale));
                     this.camera.y = Math.floor((this.canvas.height / 2) - (y * this.camera.scale));
                 }
-                
-                this.targetPing = { x, y, radius: 0 };
-                this.persistentPing = { x, y }; 
-                
+                this.targetPing = { x, y, radius: 0 }; this.persistentPing = { x, y }; 
                 const hudSel = document.getElementById('hud-selected');
                 if(hudSel) hudSel.value = `X:${x}, Y:${y}`;
                 
                 const urlParams = new URLSearchParams(window.location.search);
-                urlParams.set('x', x); urlParams.set('y', y);
+                urlParams.set('pos', `${Math.round(x)},${Math.round(y)}`);
                 window.history.replaceState(null, '', `${window.location.pathname}?${urlParams.toString()}`);
                 
                 this.animatePing();
@@ -900,9 +1015,7 @@
 
             optimizeRouteOrder() {
                 if (this.routePoints.length <= 2) return; 
-                const optimized = [this.routePoints[0]]; 
-                let unvisited = this.routePoints.slice(1);
-                
+                const optimized = [this.routePoints[0]]; let unvisited = this.routePoints.slice(1);
                 let current = optimized[0];
                 while (unvisited.length > 0) {
                     let nearestIdx = 0; let minDist = Infinity;
@@ -910,16 +1023,15 @@
                         const dist = Math.hypot(unvisited[i].x - current.x, unvisited[i].y - current.y);
                         if (dist < minDist) { minDist = dist; nearestIdx = i; }
                     }
-                    current = unvisited.splice(nearestIdx, 1)[0];
-                    optimized.push(current);
+                    current = unvisited.splice(nearestIdx, 1)[0]; optimized.push(current);
                 }
                 this.routePoints = optimized;
             }
 
-            addRoutePoint(x, y, name) { this.routePoints.push({ x, y, name: name || `${x},${y}` }); this.optimizeRouteOrder(); this.syncRouteUI(); this.calculateRoute(); this.scheduleRender(); }
-            removeRoutePoint(index) { this.routePoints.splice(index, 1); this.optimizeRouteOrder(); this.syncRouteUI(); this.calculateRoute(); this.scheduleRender(); }
-            makeFirstRoutePoint(index) { if (index <= 0 || index >= this.routePoints.length) return; const point = this.routePoints.splice(index, 1)[0]; this.routePoints.unshift(point); this.optimizeRouteOrder(); this.syncRouteUI(); this.calculateRoute(); this.scheduleRender(); }
-            clearRoute() { this.routePoints = []; this.smartRoutePath = []; this.syncRouteUI(); this.calculateRoute(); this.scheduleRender(); }
+            addRoutePoint(x, y, name) { this.routePoints.push({ x, y, name: name || `${x},${y}` }); this.optimizeRouteOrder(); this.syncRouteUI(); this.calculateRoute(); }
+            removeRoutePoint(index) { this.routePoints.splice(index, 1); this.optimizeRouteOrder(); this.syncRouteUI(); this.calculateRoute(); }
+            makeFirstRoutePoint(index) { if (index <= 0 || index >= this.routePoints.length) return; const point = this.routePoints.splice(index, 1)[0]; this.routePoints.unshift(point); this.optimizeRouteOrder(); this.syncRouteUI(); this.calculateRoute(); }
+            clearRoute() { this.routePoints = []; this.smartRoutePath = []; this.syncRouteUI(); this.calculateRoute(); }
 
             syncRouteUI() {
                 const container = document.getElementById('route-list-ui');
@@ -931,7 +1043,7 @@
                     el.title = "Duplo-clique para definir como Ponto de Partida";
                     el.ondblclick = () => window.makeFirstRP(i);
                     el.innerHTML = `
-                        <span class="text-xs text-gray-200 font-mono truncate select-none"><strong class="text-[${i===0?'#00f3ff':'#ffaa00'}] mr-2">${String.fromCharCode(65+i)}:</strong> ${pt.name}</span>
+                        <span class="text-xs text-gray-200 font-mono truncate select-none"><strong class="text-[${i===0?'#00f3ff':(this.config.mode==='route-maritime'?'#00aaff':'#ff7832')}] mr-2">${String.fromCharCode(65+i)}:</strong> ${pt.name}</span>
                         <button class="text-red-500 hover:text-red-400 px-2 text-sm font-bold" onclick="window.removeRP(${i}); event.stopPropagation();">×</button>
                     `;
                     container.appendChild(el);
@@ -940,7 +1052,7 @@
                 if(btnClr) btnClr.className = this.routePoints.length > 0 ? "w-full mt-2 py-1 bg-transparent text-gray-400 text-xs font-mono border border-gray-700 hover:text-white hover:border-gray-500 transition" : "hidden";
             }
 
-            getNearestGraphNode(x, y) {
+            getNearestLandNode(x, y) {
                 if (!this.data || !this.data.nodes || this.data.nodes.length === 0) return null;
                 let nearest = null, minDist = Infinity;
                 for (let i = 0; i < this.data.nodes.length; i++) {
@@ -951,7 +1063,7 @@
                 return nearest;
             }
 
-            runAStar(nodeA, nodeB) {
+            runLandAStar(nodeA, nodeB) {
                 const distances = new Map(), previous = new Map(), visited = new Set(), pq = new MinHeap();
                 distances.set(nodeA.id, 0); pq.push(nodeA.id, 0);
                 let pathFound = false;
@@ -984,24 +1096,207 @@
                 return { path, dist: distances.get(nodeB.id) || 0 };
             }
 
-            calculateRoute() {
-                const output = document.getElementById('route-output');
-                if(!output) return;
-                if (this.routePoints.length < 2) { output.innerHTML = 'Adicione ao menos 2 pontos na rota.'; this.smartRoutePath = []; return; }
+            async runMaritimeHybridAStarAsync(start, end) {
+                if (!this.waterGridBuilt || !this.waterGrid) return null;
 
-                let totalDistanceTiles = 0, anyFail = false; this.smartRoutePath = []; 
+                const CELL = this.gridCellSize;
+                const cols = this.gridCols;
+                const rows = this.gridRows;
 
-                for (let i = 0; i < this.routePoints.length - 1; i++) {
-                    const p1 = this.routePoints[i], p2 = this.routePoints[i+1];
-                    if (this.config.mode === 'route-straight') { totalDistanceTiles += Math.hypot(p2.x - p1.x, p2.y - p1.y); } 
-                    else if (this.config.mode === 'route-smart') {
-                        const nA = this.getNearestGraphNode(p1.x, p1.y), nB = this.getNearestGraphNode(p2.x, p2.y);
-                        if (!nA || !nB) { anyFail = true; totalDistanceTiles += Math.hypot(p2.x - p1.x, p2.y - p1.y); continue; }
-                        const result = this.runAStar(nA, nB);
-                        if (result.path.length > 0) { this.smartRoutePath.push({ start: p1, end: p2, path: result.path }); totalDistanceTiles += nA.dist + result.dist + nB.dist; } 
-                        else { anyFail = true; totalDistanceTiles += Math.hypot(p2.x - p1.x, p2.y - p1.y); }
+                const snap = (px, py) => {
+                    let gx = Math.floor(px / CELL), gy = Math.floor(py / CELL);
+                    if(gx>=0 && gy>=0 && gx<cols && gy<rows && this.waterGrid[gy*cols+gx] > 0) return {gx, gy, rx: gx*CELL+CELL/2, ry: gy*CELL+CELL/2};
+                    for(let r=1; r<=30; r++) { 
+                        for(let dy=-r; dy<=r; dy++) {
+                            for(let dx=-r; dx<=r; dx++) {
+                                let nx = gx+dx, ny = gy+dy;
+                                if(nx>=0 && ny>=0 && nx<cols && ny<rows && this.waterGrid[ny*cols+nx] > 0) {
+                                    return {gx: nx, gy: ny, rx: nx*CELL+CELL/2, ry: ny*CELL+CELL/2};
+                                }
+                            }
+                        }
+                    }
+                    return null;
+                };
+
+                const s = snap(start.x, start.y);
+                const e = snap(end.x, end.y);
+                if(!s || !e) return null; 
+
+                const startIdx = s.gy * cols + s.gx;
+                const endIdx = e.gy * cols + e.gx;
+
+                if (startIdx === endIdx) return { path: [{x: start.x, y: start.y}], dist: 0 };
+
+                const gScore = new Float32Array(cols * rows).fill(Infinity);
+                const cameFrom = new Int32Array(cols * rows).fill(-1);
+                const exactX = new Float32Array(cols * rows);
+                const exactY = new Float32Array(cols * rows);
+                const isExact = new Uint8Array(cols * rows);
+                const closedSet = new Uint8Array(cols * rows); 
+                
+                gScore[startIdx] = 0;
+                const pq = new MinHeap();
+                pq.push(startIdx, 0);
+
+                const dirs = [ [0,1,1], [1,0,1], [0,-1,1], [-1,0,1], [1,1,1.414], [1,-1,1.414], [-1,1,1.414], [-1,-1,1.414] ];
+                let found = false;
+                let iterations = 0;
+
+                while(!pq.isEmpty()) {
+                    const currentIdx = pq.pop().val;
+                    if (currentIdx === endIdx) { found = true; break; }
+                    if (closedSet[currentIdx]) continue;
+                    closedSet[currentIdx] = 1;
+
+                    if (++iterations % 3000 === 0) { await new Promise(r => setTimeout(r, 0)); }
+                    if (iterations > 150000) return null; 
+
+                    const cy = Math.floor(currentIdx / cols);
+                    const cx = currentIdx % cols;
+                    const currentG = gScore[currentIdx];
+
+                    const vEdges = this.gridToVectorEdges.get(currentIdx);
+                    if (vEdges) {
+                        for (let edge of vEdges) {
+                            const nIdx = edge.tidx;
+                            if (closedSet[nIdx]) continue;
+                            const tentativeG = currentG + (edge.weight * 0.1); 
+                            if (tentativeG < gScore[nIdx]) {
+                                cameFrom[nIdx] = currentIdx;
+                                isExact[nIdx] = 1;
+                                exactX[nIdx] = edge.exactX;
+                                exactY[nIdx] = edge.exactY;
+                                gScore[nIdx] = tentativeG;
+                                const tcy = Math.floor(nIdx / cols);
+                                const tcx = nIdx % cols;
+                                const h = Math.hypot(e.gx - tcx, e.gy - tcy) * CELL; 
+                                pq.push(nIdx, tentativeG + h);
+                            }
+                        }
+                    }
+
+                    for(let i=0; i<8; i++) {
+                        const nx = cx + dirs[i][0];
+                        const ny = cy + dirs[i][1];
+                        if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+                        
+                        const nIdx = ny * cols + nx;
+                        const cellVal = this.waterGrid[nIdx];
+                        if (cellVal === 0 || closedSet[nIdx]) continue; 
+
+                        if (dirs[i][2] > 1 && cellVal !== 2) {
+                            if (this.waterGrid[cy * cols + nx] === 0 || this.waterGrid[ny * cols + cx] === 0) continue;
+                        }
+
+                        const terrainCost = cellVal === 2 ? 0.8 : 1.0; 
+                        const tentativeG = currentG + (dirs[i][2] * CELL * terrainCost);
+                        
+                        if (tentativeG < gScore[nIdx]) {
+                            cameFrom[nIdx] = currentIdx;
+                            isExact[nIdx] = 0;
+                            gScore[nIdx] = tentativeG;
+                            const h = Math.hypot(e.gx - nx, e.gy - ny) * CELL; 
+                            pq.push(nIdx, tentativeG + h);
+                        }
                     }
                 }
+
+                if(!found) return null;
+
+                const rawPath = [];
+                let curr = endIdx;
+                while(curr !== -1) {
+                    if (isExact[curr] === 1) {
+                        rawPath.unshift({ x: exactX[curr], y: exactY[curr], isExact: true });
+                    } else {
+                        const cy = Math.floor(curr / cols);
+                        const cx = curr % cols;
+                        rawPath.unshift({ x: cx * CELL + CELL/2, y: cy * CELL + CELL/2, isExact: false });
+                    }
+                    curr = cameFrom[curr];
+                }
+
+                rawPath[0] = { x: start.x, y: start.y, isExact: true };
+                rawPath[rawPath.length - 1] = { x: end.x, y: end.y, isExact: true };
+
+                const smoothed = [rawPath[0]];
+                let currentPos = 0;
+                while (currentPos < rawPath.length - 1) {
+                    let furthestVisible = currentPos + 1;
+                    if (!rawPath[currentPos].isExact) {
+                        for (let i = rawPath.length - 1; i > currentPos; i--) {
+                            if (this.hasWaterLineOfSight(rawPath[currentPos], rawPath[i])) {
+                                furthestVisible = i;
+                                break;
+                            }
+                        }
+                    }
+                    smoothed.push(rawPath[furthestVisible]);
+                    currentPos = furthestVisible;
+                }
+
+                let totalDist = 0;
+                for(let i=0; i<smoothed.length-1; i++) totalDist += Math.hypot(smoothed[i+1].x - smoothed[i].x, smoothed[i+1].y - smoothed[i].y);
+
+                return { path: smoothed, dist: totalDist };
+            }
+
+            async calculateRoute() {
+                const output = document.getElementById('route-output');
+                if(!output) return;
+                
+                if (this.routePoints.length < 2) { 
+                    output.innerHTML = 'Adicione ao menos 2 pontos na rota.'; 
+                    this.smartRoutePath = []; 
+                    this.scheduleRender();
+                    return; 
+                }
+
+                const currentCalcId = ++this.routeCalcId;
+
+                if (this.config.mode === 'route-maritime') {
+                    output.innerHTML = '<span class="text-[#00aaff] animate-pulse">⛵ Navegando... (Calculando)</span>';
+                }
+
+                let totalDistanceTiles = 0, anyFail = false; 
+                let tempPath = []; 
+
+                for (let i = 0; i < this.routePoints.length - 1; i++) {
+                    if (this.routeCalcId !== currentCalcId) return;
+
+                    const p1 = this.routePoints[i], p2 = this.routePoints[i+1];
+                    
+                    if (this.config.mode === 'route-straight') { 
+                        totalDistanceTiles += Math.hypot(p2.x - p1.x, p2.y - p1.y); 
+                    } 
+                    else if (this.config.mode === 'route-smart') {
+                        const nA = this.getNearestLandNode(p1.x, p1.y);
+                        const nB = this.getNearestLandNode(p2.x, p2.y);
+                        if (!nA || !nB) { anyFail = true; totalDistanceTiles += Math.hypot(p2.x - p1.x, p2.y - p1.y); continue; }
+                        
+                        const result = this.runLandAStar(nA, nB);
+                        if (result.path.length > 0) { 
+                            tempPath.push({ start: p1, end: p2, path: result.path }); 
+                            totalDistanceTiles += nA.dist + result.dist + nB.dist; 
+                        } else { anyFail = true; totalDistanceTiles += Math.hypot(p2.x - p1.x, p2.y - p1.y); }
+                    }
+                    else if (this.config.mode === 'route-maritime') {
+                        const result = await this.runMaritimeHybridAStarAsync(p1, p2);
+                        if (this.routeCalcId !== currentCalcId) return; 
+
+                        if (result && result.path.length > 0) {
+                            tempPath.push({ start: p1, end: p2, path: result.path });
+                            totalDistanceTiles += result.dist;
+                        } else {
+                            anyFail = true;
+                            totalDistanceTiles += Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                        }
+                    }
+                }
+
+                this.smartRoutePath = tempPath;
+                this.scheduleRender();
 
                 totalDistanceTiles = Math.round(totalDistanceTiles);
                 const distanceKm = (totalDistanceTiles * 4) / 1000; 
@@ -1010,8 +1305,11 @@
                 const totalMinutes = Math.round((distanceKm / speedKmh) * 60);
                 const timeStr = Math.floor(totalMinutes / 60) > 0 ? `${Math.floor(totalMinutes/60)}h ${totalMinutes%60}m` : `${totalMinutes} min`;
 
-                if (this.config.mode === 'route-smart' && anyFail) { output.innerHTML = `<span class="text-red-400 font-bold">Sem Conexão Viária</span><br><span class="text-gray-400">Distância Direta: ${distanceKm.toFixed(2)} km</span>`; } 
-                else { output.innerHTML = `<span class="text-[#00f3ff]">${totalDistanceTiles} tiles</span> | <span class="text-[#ffaa00]">${distanceKm.toFixed(2)} km</span><br>ETA: <span class="text-white">${timeStr}</span>`; }
+                if ((this.config.mode === 'route-smart' || this.config.mode === 'route-maritime') && anyFail) { 
+                    output.innerHTML = `<span class="text-red-400 font-bold">Sem Conexão Adequada</span><br><span class="text-gray-400">Distância Direta: ${distanceKm.toFixed(2)} km</span>`; 
+                } else { 
+                    output.innerHTML = `<span class="text-[#00f3ff]">${totalDistanceTiles} tiles</span> | <span class="text-[#ffaa00]">${distanceKm.toFixed(2)} km</span><br>ETA: <span class="text-white">${timeStr}</span>`; 
+                }
             }
 
             animatePing() {
@@ -1043,7 +1341,7 @@
 
                 if (this.camera.scale > 0.4) {
                     ctx.fillStyle = this.config.shader === 'topo' ? 'rgba(0, 243, 255, 0.7)' : 'rgba(255, 255, 255, 0.4)';
-                    ctx.font = `bold ${Math.max(12, 18 / this.camera.scale)}px 'JetBrains Mono'`;
+                    ctx.font = `bold ${16 / this.camera.scale}px 'JetBrains Mono'`;
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     const getLetter = (num) => { let l = ''; while(num>0){ let m=(num-1)%26; l=String.fromCharCode(65+m)+l; num=Math.floor((num-m)/26); } return l; };
                     
@@ -1067,7 +1365,13 @@
             }
 
             render() {
-                this.pending = false; const ctx = this.ctx;
+                this.pending = false; 
+
+                if (!this.waterGridAttempted && this.assets.topo && this.assets.topo.complete && this.assets.topo.naturalWidth > 0) {
+                    this.buildOceanGrid();
+                }
+
+                const ctx = this.ctx;
                 ctx.imageSmoothingEnabled = false; ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 ctx.save(); ctx.translate(Math.round(this.camera.x), Math.round(this.camera.y)); ctx.scale(this.camera.scale, this.camera.scale);
 
@@ -1084,7 +1388,6 @@
                     ctx.save();
                     ctx.globalAlpha = this.overlayOpacity;
                     ctx.drawImage(this.overlayImage, this.overlayX, this.overlayY, drawW, drawH);
-                    
                     ctx.strokeStyle = `rgba(0, 243, 255, ${this.overlayOpacity})`;
                     ctx.lineWidth = 2 / this.camera.scale;
                     ctx.setLineDash([10 / this.camera.scale, 10 / this.camera.scale]);
@@ -1094,51 +1397,63 @@
 
                 const drawSimplePath = (paths, color, w, dashed = false, drawNames = false) => {
                     ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = w / this.camera.scale;
-                    if(dashed) ctx.setLineDash([6 / this.camera.scale, 6 / this.camera.scale]);
+                    if(dashed) ctx.setLineDash([12 / this.camera.scale, 8 / this.camera.scale]);
                     
                     paths.forEach(p => { 
                         ctx.moveTo(p.path[0][0], p.path[0][1]); 
                         for(let j=1; j<p.path.length; j++) ctx.lineTo(p.path[j][0], p.path[j][1]); 
-                        
                         if (drawNames && p.name && this.camera.scale > 0.6 && p.path.length >= 2) {
                             const midIdx = Math.floor(p.path.length / 2);
                             const p1 = p.path[Math.max(0, midIdx - 1)]; const p2 = p.path[Math.min(p.path.length-1, midIdx)];
                             const midX = (p1[0] + p2[0]) / 2; const midY = (p1[1] + p2[1]) / 2;
-                            ctx.save();
-                            this.drawText(ctx, p.name, midX, midY, color, Math.max(12, 16 / this.camera.scale), true);
-                            ctx.restore();
+                            ctx.save(); this.drawText(ctx, p.name, midX, midY, color, 14, true); ctx.restore();
                         }
                     });
-                    
                     ctx.stroke(); ctx.setLineDash([]);
                 };
 
-                if (this.config.layers.tunnels && this.data) drawSimplePath(this.data.tunnels, 'rgba(150,150,150,0.9)', 3, true, true);
-                if (this.config.layers.highways && this.data) drawSimplePath(this.data.highways, 'rgba(100,200,255,0.8)', 3, false, false);
-                if (this.config.layers.bridges && this.data) drawSimplePath(this.data.bridges, 'rgba(255,120,50,1)', 6, false, true);
+                if (this.config.layers.tunnels && this.data) {
+                    drawSimplePath(this.data.tunnels, '#b4b4b4', 3, true, true);
+                }
+                
+                if (this.config.layers.highways && this.data) {
+                    drawSimplePath(this.data.highways, '#ff7832', 3, false, false);
+                }
+                
+                if (this.config.layers.bridges && this.data) {
+                    drawSimplePath(this.data.bridges, '#ff7832', 6, false, true); 
+                }
+                
+                if (this.config.layers.canals && this.data) {
+                    drawSimplePath(this.data.canals, '#00aaff', 4, false, true); 
+                    
+                    drawSimplePath(this.data.canalTunnels, '#00aaff', 6, true, true); 
+                    drawSimplePath(this.data.canalTunnels, '#ff003c', 3, true, false); 
+                }
 
                 if (this.routePoints.length >= 2) {
-                    const routeColor = this.config.mode === 'route-smart' ? '#ffaa00' : '#bf00ff';
+                    let routeColor = '#bf00ff';
+                    if (this.config.mode === 'route-smart') routeColor = '#ff7832';
+                    if (this.config.mode === 'route-maritime') routeColor = '#00aaff';
                     
-                    if (this.config.mode === 'route-straight' || (this.config.mode === 'route-smart' && this.smartRoutePath.length === 0)) {
+                    if (this.config.mode === 'route-straight' || ((this.config.mode === 'route-smart' || this.config.mode === 'route-maritime') && this.smartRoutePath.length === 0)) {
                         ctx.beginPath(); ctx.strokeStyle = routeColor; ctx.lineWidth = 5 / this.camera.scale; ctx.setLineDash([15 / this.camera.scale, 10 / this.camera.scale]);
                         ctx.moveTo(this.routePoints[0].x, this.routePoints[0].y);
                         for (let i = 1; i < this.routePoints.length; i++) ctx.lineTo(this.routePoints[i].x, this.routePoints[i].y);
                         ctx.stroke(); ctx.setLineDash([]);
-                        
                         for (let i = 0; i < this.routePoints.length - 1; i++) {
                             const p1 = this.routePoints[i], p2 = this.routePoints[i+1];
                             this.drawDirectionArrow(ctx, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff');
                         }
-                    } else if (this.config.mode === 'route-smart') {
+                    } else if (this.config.mode === 'route-smart' || this.config.mode === 'route-maritime') {
                         this.smartRoutePath.forEach(seg => {
-                            ctx.beginPath(); ctx.strokeStyle = routeColor; ctx.lineWidth = 3 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                            ctx.beginPath(); ctx.strokeStyle = routeColor; ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
                             ctx.moveTo(seg.start.x, seg.start.y); ctx.lineTo(seg.path[0].x, seg.path[0].y); ctx.stroke();
                             
-                            ctx.beginPath(); ctx.lineWidth = 6 / this.camera.scale; ctx.setLineDash([]); 
+                            ctx.beginPath(); ctx.lineWidth = 8 / this.camera.scale; ctx.setLineDash([]); 
                             ctx.moveTo(seg.path[0].x, seg.path[0].y); seg.path.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.stroke();
                             
-                            ctx.beginPath(); ctx.lineWidth = 3 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                            ctx.beginPath(); ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
                             ctx.moveTo(seg.path[seg.path.length - 1].x, seg.path[seg.path.length - 1].y); ctx.lineTo(seg.end.x, seg.end.y); ctx.stroke();
                             
                             if (seg.path.length >= 2) {
@@ -1154,9 +1469,14 @@
                 if (this.routePoints.length > 0) {
                     this.routePoints.forEach((p, index) => {
                         ctx.beginPath(); ctx.arc(p.x, p.y, 6 / this.camera.scale, 0, 6.28);
-                        ctx.fillStyle = index === 0 ? '#00f3ff' : (this.config.mode === 'route-smart' ? '#ffaa00' : '#bf00ff'); ctx.fill();
+                        let dotColor = '#bf00ff';
+                        if(index === 0) dotColor = '#00f3ff';
+                        else if (this.config.mode === 'route-smart') dotColor = '#ff7832';
+                        else if (this.config.mode === 'route-maritime') dotColor = '#00aaff';
+                        
+                        ctx.fillStyle = dotColor; ctx.fill();
                         ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 / this.camera.scale; ctx.stroke();
-                        this.drawText(ctx, String.fromCharCode(65+index), p.x, p.y - (12/this.camera.scale), '#fff', Math.max(14, 18/this.camera.scale), true);
+                        this.drawText(ctx, String.fromCharCode(65+index), p.x, p.y - (12/this.camera.scale), '#fff', 16, true);
                     });
                 }
 
@@ -1164,17 +1484,17 @@
                     this.data.specials.forEach(s => {
                         ctx.fillStyle = '#ffaa00'; ctx.beginPath();
                         ctx.moveTo(s.x, s.y - (5/this.camera.scale)); ctx.lineTo(s.x + (5/this.camera.scale), s.y + (5/this.camera.scale)); ctx.lineTo(s.x - (5/this.camera.scale), s.y + (5/this.camera.scale)); ctx.fill();
-                        this.drawText(ctx, s.name, s.x, s.y + (12/this.camera.scale), '#ffaa00', Math.max(12, 16 / this.camera.scale), true);
+                        this.drawText(ctx, s.name, s.x, s.y + (12/this.camera.scale), '#ffaa00', 14, true);
                     });
                 }
 
                 if (this.data && (this.config.layers.deedsActive || this.config.layers.deedsFallen)) {
-                    const r = 4 / this.camera.scale, fS = Math.max(12, 16 / this.camera.scale);
+                    const r = 4 / this.camera.scale;
                     this.data.deeds.forEach(d => {
                         if ((!d.isHidden && this.config.layers.deedsActive) || (d.isHidden && this.config.layers.deedsFallen)) {
                             ctx.fillStyle = d.isHidden ? '#ff003c' : '#00ff66';
                             ctx.beginPath(); ctx.arc(Math.round(d.x), Math.round(d.y), r, 0, 6.28); ctx.fill();
-                            this.drawText(ctx, d.name, d.x, d.y, 'rgba(255,255,255,1)', fS);
+                            this.drawText(ctx, d.name, d.x, d.y, 'rgba(255,255,255,1)', 14);
                         }
                     });
                 }
@@ -1197,10 +1517,11 @@
 
             drawText(ctx, text, x, y, color, fontSize, isCenter = false) {
                 if (this.camera.scale > 0.4) {
-                    ctx.fillStyle = color; ctx.font = `bold ${Math.round(fontSize)}px 'Rajdhani'`;
+                    ctx.fillStyle = color; ctx.font = `bold ${fontSize / this.camera.scale}px 'Rajdhani'`;
                     ctx.strokeStyle = 'black'; ctx.lineWidth = 3 / this.camera.scale;
                     ctx.textAlign = isCenter ? 'center' : 'left';
-                    const dX = Math.round(x + (isCenter ? 0 : 8/this.camera.scale)), dY = Math.round(y + (isCenter ? 0 : 4/this.camera.scale));
+                    const dX = Math.round(x + (isCenter ? 0 : 8/this.camera.scale)); 
+                    const dY = Math.round(y + (isCenter ? 0 : 4/this.camera.scale));
                     ctx.strokeText(text, dX, dY); ctx.fillText(text, dX, dY); ctx.textAlign = 'left';
                 }
             }
@@ -1211,10 +1532,8 @@
             const dataLink = new DataLink();
             const mapEngine = new MapEngine('tactical-canvas');
             const scannerEngine = new ScannerEngine();
-            let currentServer = 'harmony';
-            let treasureCanvas = null;
-            let originalMapAnchorX = 0;
-            let originalMapAnchorY = 0;
+            let currentServer = 'harmony'; let treasureCanvas = null;
+            let originalMapAnchorX = 0; let originalMapAnchorY = 0;
 
             window.removeRP = (i) => mapEngine.removeRoutePoint(i);
             window.makeFirstRP = (i) => mapEngine.makeFirstRoutePoint(i);
@@ -1235,8 +1554,7 @@
             const activateTopoMode = () => {
                 const topoRadio = document.getElementById('radio-topo');
                 if (topoRadio && !topoRadio.checked) {
-                    topoRadio.checked = true;
-                    mapEngine.updateConfig('root', 'shader', 'topo');
+                    topoRadio.checked = true; mapEngine.updateConfig('root', 'shader', 'topo');
                     logger.sdeLog(`Sincronizando topografia...`, 'text-[#00f3ff]');
                     return new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
                 }
@@ -1246,36 +1564,23 @@
             const loadTreasureMap = async (file) => {
                 if (!file || !file.type.match('image.*')) return;
                 try {
-                    const c = document.getElementById('sde-console');
-                    if(c) c.innerHTML = '';
+                    const c = document.getElementById('sde-console'); if(c) c.innerHTML = '';
                     logger.sdeLog(`SDE V14 - MAPA CARREGADO.`);
                     const img = await VisionEngine.fileToImage(file);
                     
                     treasureCanvas = document.createElement('canvas');
                     treasureCanvas.width = img.width; treasureCanvas.height = img.height;
-                    const tCtx = treasureCanvas.getContext('2d');
-                    tCtx.drawImage(img, 0, 0);
+                    const tCtx = treasureCanvas.getContext('2d'); tCtx.drawImage(img, 0, 0);
 
                     const anchorPos = VisionEngine.locateBlackX(tCtx.getImageData(0,0,img.width,img.height).data, img.width, img.height);
-                    originalMapAnchorX = anchorPos.x;
-                    originalMapAnchorY = anchorPos.y;
+                    originalMapAnchorX = anchorPos.x; originalMapAnchorY = anchorPos.y;
 
-                    if(canvasFrag) {
-                        canvasFrag.width = img.width; canvasFrag.height = img.height;
-                        canvasFrag.getContext('2d').drawImage(img, 0, 0);
-                        canvasFrag.style.display = 'block';
-                    }
-                    
-                    if(btnScan) {
-                        btnScan.disabled = false;
-                        btnScan.classList.remove('text-gray-500', 'border-gray-700');
-                        btnScan.classList.add('text-[#00ffcc]', 'border-[#00ffcc]');
-                    }
+                    if(canvasFrag) { canvasFrag.width = img.width; canvasFrag.height = img.height; canvasFrag.getContext('2d').drawImage(img, 0, 0); canvasFrag.style.display = 'block'; }
+                    if(btnScan) { btnScan.disabled = false; btnScan.classList.remove('text-gray-500', 'border-gray-700'); btnScan.classList.add('text-[#00ffcc]', 'border-[#00ffcc]'); }
                     if(btnManual) btnManual.classList.remove('hidden');
                     
                     mapEngine.clearOverlay();
                     if(overlayControls) overlayControls.classList.add('hidden');
-
                     if(scanBtnText) scanBtnText.textContent = "VARREDURA CONFINADA";
                     if(scanProgressBar) scanProgressBar.style.width = "0%";
                 } catch(e) {}
@@ -1288,37 +1593,23 @@
             });
 
             document.getElementById('overlay-opacity-slider')?.addEventListener('input', (e) => {
-                const val = e.target.value;
-                document.getElementById('opacity-val').textContent = `${val}%`;
-                mapEngine.overlayOpacity = val / 100;
-                mapEngine.scheduleRender();
+                const val = e.target.value; document.getElementById('opacity-val').textContent = `${val}%`; mapEngine.overlayOpacity = val / 100; mapEngine.scheduleRender();
             });
 
             scaleSlider?.addEventListener('input', (e) => {
-                const visualVal = (e.target.value / 10).toFixed(1);
-                document.getElementById('scale-val').textContent = `${visualVal}%`;
-                
-                const oldScale = mapEngine.overlayScale;
-                const newScale = e.target.value / 1000; 
-                
+                const visualVal = (e.target.value / 10).toFixed(1); document.getElementById('scale-val').textContent = `${visualVal}%`;
+                const oldScale = mapEngine.overlayScale; const newScale = e.target.value / 1000; 
                 if(mapEngine.overlayImage) {
-                    const centerX = mapEngine.overlayX + (mapEngine.overlayImage.width * oldScale) / 2;
-                    const centerY = mapEngine.overlayY + (mapEngine.overlayImage.height * oldScale) / 2;
-                    mapEngine.overlayScale = newScale;
-                    mapEngine.overlayX = centerX - (mapEngine.overlayImage.width * newScale) / 2;
-                    mapEngine.overlayY = centerY - (mapEngine.overlayImage.height * newScale) / 2;
+                    const centerX = mapEngine.overlayX + (mapEngine.overlayImage.width * oldScale) / 2; const centerY = mapEngine.overlayY + (mapEngine.overlayImage.height * oldScale) / 2;
+                    mapEngine.overlayScale = newScale; mapEngine.overlayX = centerX - (mapEngine.overlayImage.width * newScale) / 2; mapEngine.overlayY = centerY - (mapEngine.overlayImage.height * newScale) / 2;
                 }
                 mapEngine.scheduleRender();
             });
 
             btnManual?.addEventListener('click', async () => {
                 if (!treasureCanvas) return;
-                await activateTopoMode();
-                mapEngine.spawnManualOverlay(treasureCanvas);
-                
-                if(scaleSlider) scaleSlider.value = 1000; 
-                document.getElementById('scale-val').textContent = `100.0%`;
-
+                await activateTopoMode(); mapEngine.spawnManualOverlay(treasureCanvas);
+                if(scaleSlider) scaleSlider.value = 1000; document.getElementById('scale-val').textContent = `100.0%`;
                 if(overlayControls) overlayControls.classList.remove('hidden');
                 logger.sdeLog(`OVERLAY MANUAL ATIVO. Arraste e redimensione como quiser.`, 'text-[#ffaa00] font-bold mt-1');
                 if (window.innerWidth < 768 && sidebar) sidebar.classList.add('-translate-x-full');
@@ -1326,53 +1617,34 @@
 
             btnScan?.addEventListener('click', async () => {
                 if (!treasureCanvas) return;
-
-                btnScan.disabled = true;
-                if(scanProgressBar) scanProgressBar.style.width = "0%";
-
+                btnScan.disabled = true; if(scanProgressBar) scanProgressBar.style.width = "0%";
                 await activateTopoMode();
-
                 const strictViewportData = mapEngine.getStrictViewportCanvas();
-                if (!strictViewportData) {
-                    logger.sdeLog("ERRO: Mapa base ainda não carregou.", 'text-red-500');
-                    btnScan.disabled = false;
-                    return;
-                }
+                if (!strictViewportData) { logger.sdeLog("ERRO: Mapa base ainda não carregou.", 'text-red-500'); btnScan.disabled = false; return; }
 
                 const result = await scannerEngine.findMatchInStrictViewport(strictViewportData.canvas, treasureCanvas, originalMapAnchorX, originalMapAnchorY, (prog) => { 
-                    if(scanBtnText) scanBtnText.textContent = `ANALISANDO... ${prog}%`;
-                    if(scanProgressBar) scanProgressBar.style.width = `${prog}%`;
+                    if(scanBtnText) scanBtnText.textContent = `ANALISANDO... ${prog}%`; if(scanProgressBar) scanProgressBar.style.width = `${prog}%`;
                 });
 
-                if(scanBtnText) scanBtnText.textContent = "VARREDURA CONFINADA";
-                if(scanProgressBar) scanProgressBar.style.width = "0%";
+                if(scanBtnText) scanBtnText.textContent = "VARREDURA CONFINADA"; if(scanProgressBar) scanProgressBar.style.width = "0%";
                 btnScan.disabled = false;
 
                 if (result) {
-                    const finalGlobalX = strictViewportData.globalStartX + result.x;
-                    const finalGlobalY = strictViewportData.globalStartY + result.y;
-
+                    const finalGlobalX = strictViewportData.globalStartX + result.x; const finalGlobalY = strictViewportData.globalStartY + result.y;
                     const foundScalePercent = result.scale * 100;
-                    if(scaleSlider) scaleSlider.value = Math.round(foundScalePercent * 10);
-                    document.getElementById('scale-val').textContent = `${foundScalePercent.toFixed(1)}%`;
+                    if(scaleSlider) scaleSlider.value = Math.round(foundScalePercent * 10); document.getElementById('scale-val').textContent = `${foundScalePercent.toFixed(1)}%`;
 
                     mapEngine.setOverlay(treasureCanvas, finalGlobalX, finalGlobalY, result.scale);
-                    
                     if(overlayControls) overlayControls.classList.remove('hidden');
-
-                    const anchorGlobalX = finalGlobalX + (originalMapAnchorX * result.scale);
-                    const anchorGlobalY = finalGlobalY + (originalMapAnchorY * result.scale);
+                    const anchorGlobalX = finalGlobalX + (originalMapAnchorX * result.scale); const anchorGlobalY = finalGlobalY + (originalMapAnchorY * result.scale);
                     mapEngine.focusCamera(Math.round(anchorGlobalX), Math.round(anchorGlobalY), true, true);
-                    
                     if (window.innerWidth < 768 && sidebar) sidebar.classList.add('-translate-x-full');
                 }
             });
 
             const attachAutocomplete = (inputId, onSelect) => {
-                const input = document.getElementById(inputId);
-                if(!input) return;
-                const wrapper = input.parentElement;
-                let dropdown = wrapper.querySelector('.autocomplete-dropdown');
+                const input = document.getElementById(inputId); if(!input) return;
+                const wrapper = input.parentElement; let dropdown = wrapper.querySelector('.autocomplete-dropdown');
                 if(!dropdown) {
                     dropdown = document.createElement('div');
                     dropdown.className = "autocomplete-dropdown absolute z-50 w-full top-full mt-1 bg-black/95 backdrop-blur border border-[#00f3ff]/40 shadow-[0_0_15px_rgba(0,0,0,0.9)] max-h-48 overflow-y-auto hidden text-[11px] font-mono dropdown-scroll";
@@ -1380,17 +1652,13 @@
                 }
 
                 const renderList = (matches) => {
-                    dropdown.innerHTML = '';
-                    if (matches.length === 0) { dropdown.classList.add('hidden'); return; }
+                    dropdown.innerHTML = ''; if (matches.length === 0) { dropdown.classList.add('hidden'); return; }
                     matches.forEach(loc => {
                         const item = document.createElement('div');
                         item.className = "px-2 py-2 cursor-pointer hover:bg-[#00f3ff]/20 hover:text-white text-gray-300 border-b border-gray-800 last:border-0 flex justify-between items-center transition-colors";
                         const color = loc.type === 'deed' ? (loc.isHidden ? 'text-[#ff003c]' : 'text-[#00ff66]') : 'text-[#ffaa00]';
                         item.innerHTML = `<span class="${color} truncate font-bold mr-2 text-[12px]">${loc.name}</span><span class="text-gray-500 bg-gray-900 px-1 rounded shrink-0">${loc.x},${loc.y}</span>`;
-                        item.addEventListener('mousedown', (e) => {
-                            e.preventDefault(); input.value = ''; dropdown.classList.add('hidden');
-                            if (onSelect) onSelect(loc);
-                        });
+                        item.addEventListener('mousedown', (e) => { e.preventDefault(); input.value = ''; dropdown.classList.add('hidden'); if (onSelect) onSelect(loc); });
                         dropdown.appendChild(item);
                     });
                     dropdown.classList.remove('hidden');
@@ -1400,7 +1668,6 @@
                     const val = input.value.toLowerCase().trim();
                     const allLocs = [...dataLink.data.deeds.map(d=>({...d, type:'deed'})), ...dataLink.data.specials.map(s=>({...s, type:'special'}))];
                     if (!val) { renderList(allLocs.slice(0, 50)); return; }
-
                     const gridPos = parseGridToCoords(val);
                     const matches = allLocs.filter(loc => loc.name.toLowerCase().includes(val) || `${loc.x},${loc.y}`.includes(val)).slice(0, 30);
                     if (gridPos) matches.unshift({ ...gridPos, type: 'special' }); 
@@ -1413,26 +1680,19 @@
 
             const params = new URLSearchParams(window.location.search);
             if (params.has('server')) {
-                const s = params.get('server').toLowerCase();
-                const sel = document.getElementById('server-select');
+                const s = params.get('server').toLowerCase(); const sel = document.getElementById('server-select');
                 if (sel && Array.from(sel.options).some(opt => opt.value === s)) { currentServer = s; sel.value = s; }
             }
 
             const bootSystem = async (server) => {
-                const statusInd = document.getElementById('status-indicator');
-                const controlsMod = document.getElementById('controls-module');
-                
+                const statusInd = document.getElementById('status-indicator'); const controlsMod = document.getElementById('controls-module');
                 if(statusInd) {
                     statusInd.innerHTML = `<span class="text-yellow-500 animate-pulse">⚡ Sincronizando ${server.toUpperCase()}...</span>`;
                     statusInd.className = "w-full py-2 bg-transparent border border-yellow-500 font-mono text-sm flex items-center justify-center gap-2";
                 }
                 if(controlsMod) controlsMod.classList.add('opacity-50', 'pointer-events-none');
 
-                mapEngine.loadAssets(server);
-                mapEngine.clearRoute();
-                mapEngine.clearOverlay();
-                mapEngine.persistentPing = null;
-                mapEngine.targetPing = null;
+                mapEngine.loadAssets(server); mapEngine.clearRoute(); mapEngine.clearOverlay(); mapEngine.persistentPing = null; mapEngine.targetPing = null;
                 if(overlayControls) overlayControls.classList.add('hidden');
 
                 try {
@@ -1448,19 +1708,19 @@
                     }
                     if(controlsMod) controlsMod.classList.remove('opacity-50', 'pointer-events-none');
 
-                    const newUrl = new URL(window.location);
-                    newUrl.searchParams.set('server', server);
-                    window.history.replaceState(null, '', newUrl.toString());
+                    const newUrl = new URL(window.location); newUrl.searchParams.set('server', server); window.history.replaceState(null, '', newUrl.toString());
 
-                    if (params.has('x') && params.has('y')) {
-                        mapEngine.focusCamera(parseInt(params.get('x')), parseInt(params.get('y')), true, true);
-                        params.delete('x'); params.delete('y'); 
+                    if (params.has('pos')) {
+                        const [px, py] = params.get('pos').split(',').map(Number);
+                        if (!isNaN(px) && !isNaN(py)) {
+                            mapEngine.focusCamera(px, py, true, true);
+                        }
+                        params.delete('pos');
                     } else {
                         mapEngine.camera.x = Math.floor((mapEngine.canvas.width / 2) - (2000 * mapEngine.camera.scale));
                         mapEngine.camera.y = Math.floor((mapEngine.canvas.height / 2) - (2000 * mapEngine.camera.scale));
                         mapEngine.scheduleRender();
                     }
-
                 } catch (err) { 
                     if(statusInd) {
                         statusInd.innerHTML = `<span class="text-red-500">❌ Falha de Conexão</span>`;
@@ -1471,10 +1731,8 @@
 
             document.getElementById('server-select')?.addEventListener('change', (e) => {
                 currentServer = e.target.value;
-                const searchInp = document.getElementById('search-input');
-                const routeAddInp = document.getElementById('route-add-input');
-                if(searchInp) searchInp.value = '';
-                if(routeAddInp) routeAddInp.value = '';
+                const searchInp = document.getElementById('search-input'); const routeAddInp = document.getElementById('route-add-input');
+                if(searchInp) searchInp.value = ''; if(routeAddInp) routeAddInp.value = '';
                 bootSystem(currentServer);
             });
 
@@ -1486,26 +1744,24 @@
                 if(panel) {
                     if (mode === 'ping') { mapEngine.clearRoute(); panel.className = "bg-black/40 p-3 rounded border border-gray-800 flex flex-col"; } 
                     else if (mode === 'route-straight') { panel.className = "bg-black/40 p-3 rounded border border-[#bf00ff]/50 shadow-[0_0_10px_rgba(191,0,255,0.1)] flex flex-col"; if(mapEngine.routePoints.length >= 2) mapEngine.calculateRoute(); } 
-                    else if (mode === 'route-smart') { panel.className = "bg-black/40 p-3 rounded border border-[#ffaa00]/50 shadow-[0_0_10px_rgba(255,170,0,0.1)] flex flex-col"; if(mapEngine.routePoints.length >= 2) mapEngine.calculateRoute(); }
+                    else if (mode === 'route-smart') { panel.className = "bg-black/40 p-3 rounded border border-[var(--orange)]/50 shadow-[0_0_10px_rgba(255,120,50,0.1)] flex flex-col"; if(mapEngine.routePoints.length >= 2) mapEngine.calculateRoute(); } 
+                    else if (mode === 'route-maritime') { panel.className = "bg-black/40 p-3 rounded border border-[var(--blue)]/50 shadow-[0_0_10px_rgba(0,170,255,0.1)] flex flex-col"; if(mapEngine.routePoints.length >= 2) mapEngine.calculateRoute(); }
                 }
                 mapEngine.scheduleRender();
             }));
 
             document.querySelectorAll('input[name="map-type"]').forEach(el => el.addEventListener('change', e => mapEngine.updateConfig('root', 'shader', e.target.value)));
-            
             document.getElementById('btn-clear-route')?.addEventListener('click', () => mapEngine.clearRoute());
             document.getElementById('route-speed')?.addEventListener('input', () => { if (mapEngine.routePoints.length >= 2) mapEngine.calculateRoute(); });
             
             document.getElementById('btn-focus')?.addEventListener('click', () => {
-                const input = document.getElementById('search-input');
-                if(!input) return;
+                const input = document.getElementById('search-input'); if(!input) return;
                 const gridPos = parseGridToCoords(input.value);
                 if (gridPos) { mapEngine.focusCamera(gridPos.x, gridPos.y, true, true); if (window.innerWidth < 768 && sidebar) sidebar.classList.add('-translate-x-full'); }
             });
 
             document.getElementById('btn-add-route')?.addEventListener('click', () => {
-                const input = document.getElementById('route-add-input');
-                if(!input) return;
+                const input = document.getElementById('route-add-input'); if(!input) return;
                 const gridPos = parseGridToCoords(input.value);
                 if (gridPos) { mapEngine.addRoutePoint(gridPos.x, gridPos.y, gridPos.name); input.value = ''; }
             });
@@ -1513,7 +1769,7 @@
             document.getElementById('search-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('btn-focus')?.click(); });
             document.getElementById('route-add-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('btn-add-route')?.click(); });
 
-            ['l-deeds-active', 'l-deeds-fallen', 'l-highways', 'l-bridges', 'l-tunnels', 'l-specials', 'l-grid'].forEach(id => {
+            ['l-deeds-active', 'l-deeds-fallen', 'l-highways', 'l-bridges', 'l-tunnels', 'l-canals', 'l-specials', 'l-grid'].forEach(id => {
                 document.getElementById(id)?.addEventListener('change', e => mapEngine.updateConfig('layer', id.replace('l-','').replace(/-([a-z])/g, g => g[1].toUpperCase()), e.target.checked));
             });
         });
