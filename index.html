@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -110,7 +109,7 @@
                     <div class="flex flex-col gap-2 text-sm md:text-xs">
                         <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="ping" checked> 📡 Radar Ping</label>
                         <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-straight" class="accent-[#bf00ff]"> 📏 Rota Direta (Ponto-a-Ponto)</label>
-                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-smart" class="accent-[var(--orange)]"> 🛣️ Rota Terrestre (Highways)</label>
+                        <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-smart" class="accent-[var(--cyan)]"> 🛣️ Rota Terrestre (Highways)</label>
                         <label class="flex items-center gap-2"><input type="radio" name="interaction-mode" value="route-maritime" class="accent-[var(--blue)]"> ⚓ Rota Marítima (Oceano + Canais)</label>
                     </div>
                 </section>
@@ -198,7 +197,7 @@
                     <div class="grid grid-cols-2 gap-3 text-sm md:text-xs">
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-active" checked> <span class="text-[#00ff66]">Deed (Ativa)</span></label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-deeds-fallen" checked> <span class="text-[#ff003c]">Deed (Caída)</span></label>
-                        <label class="flex items-center gap-2"><input type="checkbox" id="l-highways" checked> <span class="text-[var(--orange)]">Highways</span></label>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="l-highways" checked> <span class="text-[var(--cyan)]">Highways</span></label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-bridges" checked> <span class="text-[var(--orange)] font-bold">Bridges</span></label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-tunnels" checked> Tunnels (Land)</label>
                         <label class="flex items-center gap-2"><input type="checkbox" id="l-canals" checked> <span class="text-[var(--blue)]">Canals (Water)</span></label>
@@ -1042,8 +1041,10 @@
                     el.className = "flex justify-between items-center bg-black/50 border border-gray-800 p-2 rounded cursor-pointer hover:bg-white/5 transition-colors group";
                     el.title = "Duplo-clique para definir como Ponto de Partida";
                     el.ondblclick = () => window.makeFirstRP(i);
+                    const ratio = this.routePoints.length > 1 ? i / (this.routePoints.length - 1) : 0;
+                    const dotColor = `hsl(${Math.floor(ratio * 280)}, 100%, 60%)`;
                     el.innerHTML = `
-                        <span class="text-xs text-gray-200 font-mono truncate select-none"><strong class="text-[${i===0?'#00f3ff':(this.config.mode==='route-maritime'?'#00aaff':'#ff7832')}] mr-2">${String.fromCharCode(65+i)}:</strong> ${pt.name}</span>
+                        <span class="text-xs text-gray-200 font-mono truncate select-none"><strong style="color: ${dotColor}; text-shadow: 0 0 5px ${dotColor}88;" class="mr-2">${String.fromCharCode(65+i)}:</strong> ${pt.name}</span>
                         <button class="text-red-500 hover:text-red-400 px-2 text-sm font-bold" onclick="window.removeRP(${i}); event.stopPropagation();">×</button>
                     `;
                     container.appendChild(el);
@@ -1431,50 +1432,75 @@
                     drawSimplePath(this.data.canalTunnels, '#ff003c', 3, true, false); 
                 }
 
+                // Renderização Multi-Stop Rainbow Gradient
                 if (this.routePoints.length >= 2) {
-                    let routeColor = '#bf00ff';
-                    if (this.config.mode === 'route-smart') routeColor = '#ff7832';
-                    if (this.config.mode === 'route-maritime') routeColor = '#00aaff';
-                    
+                    const getRainbowColor = (ratio) => {
+                        const hue = Math.floor(ratio * 280); // 0 = red, 280 = violet
+                        return `hsl(${hue}, 100%, 50%)`;
+                    };
+
                     if (this.config.mode === 'route-straight' || ((this.config.mode === 'route-smart' || this.config.mode === 'route-maritime') && this.smartRoutePath.length === 0)) {
-                        ctx.beginPath(); ctx.strokeStyle = routeColor; ctx.lineWidth = 5 / this.camera.scale; ctx.setLineDash([15 / this.camera.scale, 10 / this.camera.scale]);
-                        ctx.moveTo(this.routePoints[0].x, this.routePoints[0].y);
-                        for (let i = 1; i < this.routePoints.length; i++) ctx.lineTo(this.routePoints[i].x, this.routePoints[i].y);
-                        ctx.stroke(); ctx.setLineDash([]);
                         for (let i = 0; i < this.routePoints.length - 1; i++) {
                             const p1 = this.routePoints[i], p2 = this.routePoints[i+1];
+                            const r1 = i / (this.routePoints.length - 1);
+                            const r2 = (i + 1) / (this.routePoints.length - 1);
+
+                            const grad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+                            grad.addColorStop(0, getRainbowColor(r1));
+                            grad.addColorStop(1, getRainbowColor(r2));
+
+                            ctx.beginPath(); ctx.strokeStyle = grad; ctx.lineWidth = 5 / this.camera.scale; ctx.setLineDash([15 / this.camera.scale, 10 / this.camera.scale]);
+                            ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+                            
                             this.drawDirectionArrow(ctx, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff');
                         }
+                        ctx.setLineDash([]);
                     } else if (this.config.mode === 'route-smart' || this.config.mode === 'route-maritime') {
-                        this.smartRoutePath.forEach(seg => {
-                            ctx.beginPath(); ctx.strokeStyle = routeColor; ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
-                            ctx.moveTo(seg.start.x, seg.start.y); ctx.lineTo(seg.path[0].x, seg.path[0].y); ctx.stroke();
-                            
-                            ctx.beginPath(); ctx.lineWidth = 8 / this.camera.scale; ctx.setLineDash([]); 
-                            ctx.moveTo(seg.path[0].x, seg.path[0].y); seg.path.forEach(pt => ctx.lineTo(pt.x, pt.y)); ctx.stroke();
-                            
-                            ctx.beginPath(); ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
-                            ctx.moveTo(seg.path[seg.path.length - 1].x, seg.path[seg.path.length - 1].y); ctx.lineTo(seg.end.x, seg.end.y); ctx.stroke();
-                            
-                            if (seg.path.length >= 2) {
-                                const midIndex = Math.floor(seg.path.length / 2);
-                                const p1 = seg.path[Math.max(0, midIndex - 1)], p2 = seg.path[Math.min(seg.path.length - 1, midIndex + 1)];
-                                this.drawDirectionArrow(ctx, seg.path[midIndex].x, seg.path[midIndex].y, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff');
+                        const totalSegments = Math.max(1, this.routePoints.length - 1);
+                        this.smartRoutePath.forEach((seg, segIndex) => {
+                            const segStartRatio = segIndex / totalSegments;
+                            const segEndRatio = (segIndex + 1) / totalSegments;
+                            const pathLen = seg.path.length;
+
+                            if (pathLen > 0) {
+                                ctx.beginPath(); ctx.strokeStyle = getRainbowColor(segStartRatio); ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                                ctx.moveTo(seg.start.x, seg.start.y); ctx.lineTo(seg.path[0].x, seg.path[0].y); ctx.stroke();
+                                
+                                ctx.setLineDash([]);
+                                ctx.lineWidth = 8 / this.camera.scale;
+                                
+                                for(let k = 0; k < pathLen - 1; k++) {
+                                    const pt1 = seg.path[k];
+                                    const pt2 = seg.path[k+1];
+                                    const r1 = segStartRatio + (k / Math.max(1, pathLen-1)) * (segEndRatio - segStartRatio);
+                                    
+                                    ctx.beginPath();
+                                    ctx.strokeStyle = getRainbowColor(r1);
+                                    ctx.moveTo(pt1.x, pt1.y);
+                                    ctx.lineTo(pt2.x, pt2.y);
+                                    ctx.stroke();
+                                }
+                                
+                                ctx.beginPath(); ctx.strokeStyle = getRainbowColor(segEndRatio); ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                                ctx.moveTo(seg.path[pathLen - 1].x, seg.path[pathLen - 1].y); ctx.lineTo(seg.end.x, seg.end.y); ctx.stroke();
+                                ctx.setLineDash([]);
+                                
+                                if (pathLen >= 2) {
+                                    const midIndex = Math.floor(pathLen / 2);
+                                    const p1 = seg.path[Math.max(0, midIndex - 1)], p2 = seg.path[Math.min(pathLen - 1, midIndex + 1)];
+                                    this.drawDirectionArrow(ctx, seg.path[midIndex].x, seg.path[midIndex].y, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff');
+                                }
                             }
                         });
-                        ctx.setLineDash([]);
                     }
                 }
 
                 if (this.routePoints.length > 0) {
+                    const getRainbowColor = (ratio) => `hsl(${Math.floor(ratio * 280)}, 100%, 50%)`;
                     this.routePoints.forEach((p, index) => {
                         ctx.beginPath(); ctx.arc(p.x, p.y, 6 / this.camera.scale, 0, 6.28);
-                        let dotColor = '#bf00ff';
-                        if(index === 0) dotColor = '#00f3ff';
-                        else if (this.config.mode === 'route-smart') dotColor = '#ff7832';
-                        else if (this.config.mode === 'route-maritime') dotColor = '#00aaff';
-                        
-                        ctx.fillStyle = dotColor; ctx.fill();
+                        const ratio = this.routePoints.length > 1 ? index / (this.routePoints.length - 1) : 0;
+                        ctx.fillStyle = getRainbowColor(ratio); ctx.fill();
                         ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 / this.camera.scale; ctx.stroke();
                         this.drawText(ctx, String.fromCharCode(65+index), p.x, p.y - (12/this.camera.scale), '#fff', 16, true);
                     });
