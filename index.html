@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GAMA ENGINE // Ultimate Tactical Network</title>
+    <!-- O aviso de CDN do Tailwind no console é normal em aplicações single-file -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     
@@ -534,7 +535,6 @@
                             await this.fetchNotionFallenDeeds();
                         } catch (notionError) {
                             console.error("GAMA ENGINE: Falha ao carregar deeds secundárias do Notion.", notionError);
-                            // Falha silenciosa para não quebrar o mapa principal do Yaga
                         }
                     }
 
@@ -554,10 +554,12 @@
                 while (hasMore) {
                     const targetUrl = `https://api.notion.com/v1/databases/${dbId}/query`;
                     
-                    // Fallback de proxies robustos para burlar bloqueios no preflight (OPTIONS)
+                    // Fallback de proxies robustos para burlar bloqueios no preflight (OPTIONS) de requests POST com Autenticação
                     const proxies = [
-                        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-                        `https://cors-proxy.fringe.zone/${targetUrl}`,
+                        `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
+                        `https://proxy.cors.sh/${targetUrl}`,
+                        `https://cors-anywhere.herokuapp.com/${targetUrl}`,
+                        `https://corsproxy.io/?${targetUrl}`, // Sem encodeURIComponent pois costuma quebrar este proxy em especifico
                         `https://cors.eu.org/${targetUrl}`
                     ];
 
@@ -588,12 +590,14 @@
                                 break; 
                             }
                         } catch (err) {
-                            console.warn(`[GAMA ENGINE] Proxy falhou por CORS: ${proxyUrl}. Tentando o próximo...`);
+                            console.warn(`[GAMA ENGINE] Proxy falhou por CORS ou Timeout: ${proxyUrl}. Tentando o próximo...`);
                         }
                     }
 
+                    // Se todos os proxies falharem (muito comum em aplicações 100% frontend), sai sem quebrar o mapa principal
                     if (!success || !notionData) {
-                        throw new Error("Todos os proxies CORS públicos falharam para o Notion.");
+                        logger.sdeLog("AVISO: Falha ao carregar deeds caídas do Notion (Bloqueio Anti-Spam dos Proxies Públicos). O mapa continuará rodando com os dados do Yaga.", "text-yellow-500 font-bold");
+                        break; 
                     }
 
                     // Processa os resultados desta página
