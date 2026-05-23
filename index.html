@@ -1,11 +1,12 @@
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>GAMA ENGINE // Ultimate Tactical Network</title>
-    <!-- O aviso de CDN do Tailwind no console é normal em aplicações single-file -->
+    <!-- O aviso do CDN do Tailwind no console é inofensivo e esperado em aplicações single-file -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     
@@ -544,50 +545,19 @@
                 const dbId = '3175ded63e758091b477d23e9d8e40d0';
                 const token = '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';
                 const existingNames = new Set(this.data.deeds.map(d => d.name.toLowerCase().trim()));
-                let success = false;
-
-                // ESTRATÉGIA 1: Splitbee API (Criada para ler tabelas públicas do Notion sem CORS e sem Token via GET)
-                try {
-                    const splitbeeUrl = `https://notion-api.splitbee.io/v1/table/${dbId}`;
-                    const response = await fetch(splitbeeUrl);
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        data.forEach(row => {
-                            if (!row['Nome'] || !row['Coordenadas (yaga)']) return;
-                            
-                            const name = String(row['Nome']).trim();
-                            const coordsStr = String(row['Coordenadas (yaga)']);
-                            const parts = coordsStr.split(',');
-                            
-                            if (parts.length >= 2) {
-                                const x = parseInt(parts[0].trim());
-                                const y = parseInt(parts[1].trim());
-
-                                if (!isNaN(x) && !isNaN(y) && !existingNames.has(name.toLowerCase())) {
-                                    this.data.deeds.push({ name: name, x: x, y: y, isHidden: true });
-                                    existingNames.add(name.toLowerCase());
-                                }
-                            }
-                        });
-                        success = true;
-                    }
-                } catch (e) {
-                    console.warn("[GAMA ENGINE] Splitbee API offline. Iniciando plano B (API Oficial).");
-                }
-
-                if (success) return; // Se o Splitbee funcionou, ignora o resto.
-
-                // ESTRATÉGIA 2: API Oficial via Proxies (Caso a tabela deixe de ser pública ou o Splitbee falhe)
+                
                 let hasMore = true;
                 let nextCursor = null;
 
                 while (hasMore) {
                     const targetUrl = `https://api.notion.com/v1/databases/${dbId}/query`;
+                    
+                    // Fallback de proxies atualizado para lidar com bloqueios de OPTIONS (Preflight)
                     const proxies = [
-                        `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
-                        `https://proxy.cors.sh/${targetUrl}`,
-                        `https://corsproxy.io/?${targetUrl}`
+                        `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
+                        `https://cors-anywhere.azm.workers.dev/${targetUrl}`,
+                        `https://cors-proxy.elfsight.com/${targetUrl}`,
+                        `https://corsproxy.org/api/?url=${encodeURIComponent(targetUrl)}`
                     ];
 
                     const bodyPayload = {};
@@ -615,11 +585,13 @@
                                 proxySuccess = true;
                                 break; 
                             }
-                        } catch (err) {}
+                        } catch (err) {
+                            // Silencioso. Vai pro próximo proxy.
+                        }
                     }
 
                     if (!proxySuccess || !notionData) {
-                        logger.sdeLog("AVISO: Falha ao carregar deeds caídas do Notion (Proxies bloqueados). Mapa online.", "text-yellow-500 font-bold");
+                        logger.sdeLog("AVISO: Falha de Rede nos Proxies Públicos (Notion API bloqueada). O mapa carregou normalmente com os dados base do Yaga.", "text-yellow-500 font-bold");
                         break; 
                     }
 
