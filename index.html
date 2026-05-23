@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -668,7 +669,8 @@
                             const neighborCells = spatialGrid.get(`${gx + dx},${gy + dy}`);
                             if (neighborCells) {
                                 for (const otherNode of neighborCells) {
-                                    if (node.id !== otherNode.id && Math.hypot(otherNode.x - node.x, node.y - node.y) <= maxConnectionDist) {
+                                    // CORREÇÃO CRÍTICA AQUI: O cálculo estava node.y - node.y (que dava sempre 0), quebrando todas as rotas de canais do mapa.
+                                    if (node.id !== otherNode.id && Math.hypot(otherNode.x - node.x, otherNode.y - node.y) <= maxConnectionDist) {
                                         addEdge(node, otherNode);
                                     }
                                 }
