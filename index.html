@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -526,7 +527,7 @@
                     await this.parseData(JSON.parse(match[1]));
 
                     // ==========================================
-                    // INTEGRAÇÃO NOTION (PAGINADA) - HARMONY FALLEN DEEDS
+                    // INTEGRAÇÃO NOTION (PAGINADA E ANTI-CORS BLOCK) - HARMONY
                     // ==========================================
                     if (serverName.toLowerCase() === 'harmony') {
                         try {
@@ -551,29 +552,51 @@
                 const existingNames = new Set(this.data.deeds.map(d => d.name.toLowerCase().trim()));
 
                 while (hasMore) {
-                    const url = `https://corsproxy.io/?https://api.notion.com/v1/databases/${dbId}/query`;
+                    const targetUrl = `https://api.notion.com/v1/databases/${dbId}/query`;
                     
+                    // Fallback de proxies robustos para burlar bloqueios no preflight (OPTIONS)
+                    const proxies = [
+                        `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+                        `https://cors-proxy.fringe.zone/${targetUrl}`,
+                        `https://cors.eu.org/${targetUrl}`
+                    ];
+
                     const bodyPayload = {};
                     if (nextCursor) {
                         bodyPayload.start_cursor = nextCursor;
                     }
 
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Notion-Version': '2022-06-28',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(bodyPayload)
-                    });
+                    let notionData = null;
+                    let success = false;
 
-                    if (!response.ok) {
-                        throw new Error(`Notion API Error: ${response.status}`);
+                    // Tenta cada proxy da lista até algum responder com sucesso
+                    for (let proxyUrl of proxies) {
+                        try {
+                            const response = await fetch(proxyUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Notion-Version': '2022-06-28',
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(bodyPayload)
+                            });
+
+                            if (response.ok) {
+                                notionData = await response.json();
+                                success = true;
+                                break; 
+                            }
+                        } catch (err) {
+                            console.warn(`[GAMA ENGINE] Proxy falhou por CORS: ${proxyUrl}. Tentando o próximo...`);
+                        }
                     }
 
-                    const notionData = await response.json();
+                    if (!success || !notionData) {
+                        throw new Error("Todos os proxies CORS públicos falharam para o Notion.");
+                    }
 
+                    // Processa os resultados desta página
                     notionData.results.forEach(page => {
                         try {
                             // Extração segura de "Nome"
@@ -593,7 +616,7 @@
 
                                 if (!isNaN(x) && !isNaN(y)) {
                                     if (!existingNames.has(name.toLowerCase())) {
-                                        // Inserindo a deed como caída (isHidden: true) e registrando para não duplicar na própria varredura
+                                        // Inserindo a deed como caída (isHidden: true)
                                         this.data.deeds.push({ name: name, x: x, y: y, isHidden: true });
                                         existingNames.add(name.toLowerCase());
                                     }
@@ -604,7 +627,7 @@
                         }
                     });
 
-                    // Atualiza variaveis de paginação baseadas na resposta da API
+                    // Atualiza variaveis de paginação para continuar varrendo (ou sair do loop se acabou)
                     hasMore = notionData.has_more;
                     nextCursor = notionData.next_cursor;
                 }
