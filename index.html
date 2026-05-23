@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -528,7 +527,7 @@
                     await this.parseData(JSON.parse(match[1]));
 
                     // ==========================================
-                    // INTEGRAÇÃO NOTION (PAGINADA E ANTI-CORS BLOCK) - HARMONY
+                    // INTEGRAÇÃO NOTION - ESTRATÉGIA ANTI-CORS
                     // ==========================================
                     if (serverName.toLowerCase() === 'harmony') {
                         try {
@@ -544,23 +543,51 @@
             async fetchNotionFallenDeeds() {
                 const dbId = '3175ded63e758091b477d23e9d8e40d0';
                 const token = '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';
-                
+                const existingNames = new Set(this.data.deeds.map(d => d.name.toLowerCase().trim()));
+                let success = false;
+
+                // ESTRATÉGIA 1: Splitbee API (Criada para ler tabelas públicas do Notion sem CORS e sem Token via GET)
+                try {
+                    const splitbeeUrl = `https://notion-api.splitbee.io/v1/table/${dbId}`;
+                    const response = await fetch(splitbeeUrl);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        data.forEach(row => {
+                            if (!row['Nome'] || !row['Coordenadas (yaga)']) return;
+                            
+                            const name = String(row['Nome']).trim();
+                            const coordsStr = String(row['Coordenadas (yaga)']);
+                            const parts = coordsStr.split(',');
+                            
+                            if (parts.length >= 2) {
+                                const x = parseInt(parts[0].trim());
+                                const y = parseInt(parts[1].trim());
+
+                                if (!isNaN(x) && !isNaN(y) && !existingNames.has(name.toLowerCase())) {
+                                    this.data.deeds.push({ name: name, x: x, y: y, isHidden: true });
+                                    existingNames.add(name.toLowerCase());
+                                }
+                            }
+                        });
+                        success = true;
+                    }
+                } catch (e) {
+                    console.warn("[GAMA ENGINE] Splitbee API offline. Iniciando plano B (API Oficial).");
+                }
+
+                if (success) return; // Se o Splitbee funcionou, ignora o resto.
+
+                // ESTRATÉGIA 2: API Oficial via Proxies (Caso a tabela deixe de ser pública ou o Splitbee falhe)
                 let hasMore = true;
                 let nextCursor = null;
 
-                // Set auxiliar para não sobrescrever deeds que já existem no Yaga base
-                const existingNames = new Set(this.data.deeds.map(d => d.name.toLowerCase().trim()));
-
                 while (hasMore) {
                     const targetUrl = `https://api.notion.com/v1/databases/${dbId}/query`;
-                    
-                    // Fallback de proxies robustos para burlar bloqueios no preflight (OPTIONS) de requests POST com Autenticação
                     const proxies = [
                         `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
                         `https://proxy.cors.sh/${targetUrl}`,
-                        `https://cors-anywhere.herokuapp.com/${targetUrl}`,
-                        `https://corsproxy.io/?${targetUrl}`, // Sem encodeURIComponent pois costuma quebrar este proxy em especifico
-                        `https://cors.eu.org/${targetUrl}`
+                        `https://corsproxy.io/?${targetUrl}`
                     ];
 
                     const bodyPayload = {};
@@ -569,9 +596,8 @@
                     }
 
                     let notionData = null;
-                    let success = false;
+                    let proxySuccess = false;
 
-                    // Tenta cada proxy da lista até algum responder com sucesso
                     for (let proxyUrl of proxies) {
                         try {
                             const response = await fetch(proxyUrl, {
@@ -586,29 +612,23 @@
 
                             if (response.ok) {
                                 notionData = await response.json();
-                                success = true;
+                                proxySuccess = true;
                                 break; 
                             }
-                        } catch (err) {
-                            console.warn(`[GAMA ENGINE] Proxy falhou por CORS ou Timeout: ${proxyUrl}. Tentando o próximo...`);
-                        }
+                        } catch (err) {}
                     }
 
-                    // Se todos os proxies falharem (muito comum em aplicações 100% frontend), sai sem quebrar o mapa principal
-                    if (!success || !notionData) {
-                        logger.sdeLog("AVISO: Falha ao carregar deeds caídas do Notion (Bloqueio Anti-Spam dos Proxies Públicos). O mapa continuará rodando com os dados do Yaga.", "text-yellow-500 font-bold");
+                    if (!proxySuccess || !notionData) {
+                        logger.sdeLog("AVISO: Falha ao carregar deeds caídas do Notion (Proxies bloqueados). Mapa online.", "text-yellow-500 font-bold");
                         break; 
                     }
 
-                    // Processa os resultados desta página
                     notionData.results.forEach(page => {
                         try {
-                            // Extração segura de "Nome"
                             const titleProp = page.properties['Nome'];
                             if (!titleProp || !titleProp.title || titleProp.title.length === 0) return;
                             const name = titleProp.title[0].plain_text.trim();
 
-                            // Extração segura de "Coordenadas (yaga)"
                             const coordsProp = page.properties['Coordenadas (yaga)'];
                             if (!coordsProp || !coordsProp.rich_text || coordsProp.rich_text.length === 0) return;
                             const coordsStr = coordsProp.rich_text[0].plain_text;
@@ -618,20 +638,14 @@
                                 const x = parseInt(parts[0].trim());
                                 const y = parseInt(parts[1].trim());
 
-                                if (!isNaN(x) && !isNaN(y)) {
-                                    if (!existingNames.has(name.toLowerCase())) {
-                                        // Inserindo a deed como caída (isHidden: true)
-                                        this.data.deeds.push({ name: name, x: x, y: y, isHidden: true });
-                                        existingNames.add(name.toLowerCase());
-                                    }
+                                if (!isNaN(x) && !isNaN(y) && !existingNames.has(name.toLowerCase())) {
+                                    this.data.deeds.push({ name: name, x: x, y: y, isHidden: true });
+                                    existingNames.add(name.toLowerCase());
                                 }
                             }
-                        } catch (err) {
-                            console.warn("GAMA ENGINE: Erro ao fazer parse de uma linha do Notion:", err);
-                        }
+                        } catch (err) {}
                     });
 
-                    // Atualiza variaveis de paginação para continuar varrendo (ou sair do loop se acabou)
                     hasMore = notionData.has_more;
                     nextCursor = notionData.next_cursor;
                 }
