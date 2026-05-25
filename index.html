@@ -543,7 +543,6 @@
                 } catch (e) { throw new Error(`Falha ao conectar no servidor ${serverName.toUpperCase()}: ${e.message}`); }
             }
 
-            // FUNÇÃO REUTILIZÁVEL: LEITURA DOS ARQUIVOS CSV LOCAIS (DEEDS ou SPECIALS)
             async fetchCSVData(fileName, type, isHidden = false) {
                 const targetArray = type === 'special' ? this.data.specials : this.data.deeds;
                 const existingNames = new Set(targetArray.map(item => item.name.toLowerCase().trim()));
@@ -555,7 +554,7 @@
                     
                     const lines = csvText.split(/\r?\n/);
                     
-                    for (let i = 1; i < lines.length; i++) { // Ignora o cabeçalho
+                    for (let i = 1; i < lines.length; i++) {
                         const line = lines[i].trim();
                         if (!line) continue;
 
@@ -563,7 +562,6 @@
                         let current = '';
                         let inQuotes = false;
                         
-                        // Parser manual para não quebrar com vírgulas dentro de aspas duplas (Ex: "2084,1758")
                         for (let j = 0; j < line.length; j++) {
                             const char = line[j];
                             if (char === '"') { inQuotes = !inQuotes; }
@@ -577,7 +575,6 @@
                             const coordsStr = row[2].trim();
 
                             if (name && coordsStr && !existingNames.has(name.toLowerCase())) {
-                                // Pega apenas os dois blocos de dígitos
                                 const match = coordsStr.match(/(\d+)\s*,\s*(\d+)/);
                                 if (match) {
                                     const x = parseInt(match[1]);
@@ -624,8 +621,9 @@
                         const rawTunnels = getTab("Tunnels");
                         rawTunnels.forEach(row => {
                             if (row.length >= 5) {
-                                const isWater = row[5] === "TRUE";
-                                const isTunnel = row[6] === "TRUE";
+                                // CORREÇÃO: Robustez na conversão de Booleanos do Google Sheets
+                                const isWater = String(row[5]).toUpperCase() === "TRUE";
+                                const isTunnel = String(row[6]).toUpperCase() === "TRUE";
                                 const pathObj = { name: row[0], path: [ [parseInt(row[1]), parseInt(row[2])], [parseInt(row[3]), parseInt(row[4])] ] };
                                 
                                 if (isWater && isTunnel) {
@@ -783,7 +781,7 @@
                 this.gridCellSize = 15; 
                 this.waterGrid = null;
                 this.gridCols = 0; this.gridRows = 0;
-                this.gridToVectorEdges = new Map(); // Mapa Híbrido
+                this.gridToVectorEdges = new Map(); 
 
                 this.initEvents();
                 new ResizeObserver(() => this.resize()).observe(this.container);
@@ -834,18 +832,18 @@
                             const idx = (py * tempCanvas.width + px) * 4;
                             const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
 
-                            if (b > 50 && b > r + 10 && b > g + 5 && r < 120) {
+                            // CORREÇÃO: Tolerância levemente ampliada para aceitar águas de diversos mapas topográficos
+                            if (b > 40 && b > r + 5 && b > g + 2 && r < 140) {
                                 this.waterGrid[y * this.gridCols + x] = 1;
                             }
                         }
                     }
 
-                    // A MAGICA HYBRIDA: Configura os saltos vetoriais
+                    // A MÁGICA HÍBRIDA: Configura os saltos vetoriais e a Área de Captura (Catchment Area)
                     if (this.data && this.data.waterNodes) {
                         this.data.waterNodes.forEach(node => {
                             const gx = Math.floor(node.x / this.gridCellSize);
                             const gy = Math.floor(node.y / this.gridCellSize);
-                            const idx = gy * this.gridCols + gx;
                             
                             const edges = this.data.waterGraph.get(node.id) || [];
                             const validEdges = [];
@@ -859,16 +857,27 @@
                             });
                             
                             if (validEdges.length > 0) {
-                                if (!this.gridToVectorEdges.has(idx)) this.gridToVectorEdges.set(idx, []);
-                                this.gridToVectorEdges.get(idx).push(...validEdges);
-                            }
-                            
-                            // Queima um canal inquebrável para o Grid se conectar ao vetor
-                            for(let dy=-1; dy<=1; dy++) {
-                                for(let dx=-1; dx<=1; dx++) {
-                                    const nx = gx + dx, ny = gy + dy;
-                                    if (nx >= 0 && ny >= 0 && nx < this.gridCols && ny < this.gridRows) {
-                                        this.waterGrid[ny * this.gridCols + nx] = 2;
+                                // CORREÇÃO DE ROTEAMENTO MARÍTIMO: 
+                                // Expande os gatilhos do nó para os 9 blocos ao redor (3x3).
+                                // Isso impede que o A* ande "perto" do canal, mas não engatilhe a conexão vetorial.
+                                for(let dy=-1; dy<=1; dy++) {
+                                    for(let dx=-1; dx<=1; dx++) {
+                                        const nx = gx + dx, ny = gy + dy;
+                                        if (nx >= 0 && ny >= 0 && nx < this.gridCols && ny < this.gridRows) {
+                                            const nidx = ny * this.gridCols + nx;
+                                            
+                                            if (!this.gridToVectorEdges.has(nidx)) {
+                                                this.gridToVectorEdges.set(nidx, []);
+                                            }
+                                            
+                                            // Registra conexões sem duplicar
+                                            validEdges.forEach(ve => {
+                                                const existing = this.gridToVectorEdges.get(nidx);
+                                                if (!existing.some(e => e.tidx === ve.tidx)) existing.push(ve);
+                                            });
+                                            
+                                            this.waterGrid[nidx] = 2; // Marca efetivamente como navegável
+                                        }
                                     }
                                 }
                             }
@@ -881,7 +890,7 @@
                     }
 
                 } catch (e) {
-                    console.error("Não foi possível gerar a malha de água.", e);
+                    console.error("Não foi possível gerar a malha de água. Erro CORS ou Imagem bloqueada.", e);
                 }
             }
 
@@ -897,8 +906,10 @@
                 while (true) {
                     if (x0 < 0 || y0 < 0 || x0 >= this.gridCols || y0 >= this.gridRows) return false;
                     const cellVal = this.waterGrid[y0 * this.gridCols + x0];
-                    if (cellVal === 0) return false; // Bateu na terra
-                    if (cellVal === 2) return false; // Nao corta caminho no canal, preserva a curva vetorial original
+                    
+                    if (cellVal === 0) return false; // Terra
+                    // CORREÇÃO: O bloqueio de suavização por Canais (cellVal === 2) foi removido
+                    // para permitir que as linhas retas entrem/saiam dos rios vetoriais com naturalidade.
 
                     if (x0 === x1 && y0 === y1) break;
                     let e2 = 2 * err;
@@ -1082,7 +1093,6 @@
                 const hudSel = document.getElementById('hud-selected');
                 if(hudSel) hudSel.value = `X:${x}, Y:${y}`;
                 
-                // Atualiza a URL de forma "limpa" para não deixar o "%2C" aparecendo
                 const urlParams = new URLSearchParams(window.location.search);
                 urlParams.set('pos', `${Math.round(x)},${Math.round(y)}`);
                 const cleanQuery = urlParams.toString().replace(/%2C/gi, ','); 
@@ -1186,9 +1196,12 @@
                 const snap = (px, py) => {
                     let gx = Math.floor(px / CELL), gy = Math.floor(py / CELL);
                     if(gx>=0 && gy>=0 && gx<cols && gy<rows && this.waterGrid[gy*cols+gx] > 0) return {gx, gy, rx: gx*CELL+CELL/2, ry: gy*CELL+CELL/2};
+                    
                     for(let r=1; r<=30; r++) { 
                         for(let dy=-r; dy<=r; dy++) {
                             for(let dx=-r; dx<=r; dx++) {
+                                // CORREÇÃO: Otimização severa que verifica apenas o perímetro, evitando lags pesados
+                                if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; 
                                 let nx = gx+dx, ny = gy+dy;
                                 if(nx>=0 && ny>=0 && nx<cols && ny<rows && this.waterGrid[ny*cols+nx] > 0) {
                                     return {gx: nx, gy: ny, rx: nx*CELL+CELL/2, ry: ny*CELL+CELL/2};
@@ -1230,7 +1243,7 @@
                     closedSet[currentIdx] = 1;
 
                     if (++iterations % 3000 === 0) { await new Promise(r => setTimeout(r, 0)); }
-                    if (iterations > 150000) return null; 
+                    if (iterations > 250000) return null; // Prevenção de loop infinito aumentada
 
                     const cy = Math.floor(currentIdx / cols);
                     const cx = currentIdx % cols;
@@ -1511,10 +1524,9 @@
                     drawSimplePath(this.data.canalTunnels, '#ff003c', 3, true, false); 
                 }
 
-                // Renderização Multi-Stop Rainbow Gradient
                 if (this.routePoints.length >= 2) {
                     const getRainbowColor = (ratio) => {
-                        const hue = Math.floor(ratio * 280); // 0 = red, 280 = violet
+                        const hue = Math.floor(ratio * 280); 
                         return `hsl(${hue}, 100%, 50%)`;
                     };
 
@@ -1815,7 +1827,6 @@
 
                     const newUrl = new URL(window.location); newUrl.searchParams.set('server', server); window.history.replaceState(null, '', newUrl.toString());
 
-                    // Suporta ler tanto com ponto quanto com vírgula para manter compatibilidade
                     if (params.has('pos')) {
                         const posParam = params.get('pos');
                         const separator = posParam.includes('.') ? '.' : ',';
