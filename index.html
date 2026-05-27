@@ -222,6 +222,15 @@
                         </div>
                     </div>
                 </section>
+
+                <!-- MÓDULO PIP (POP-OUT) LIMPO -->
+                <section class="bg-[#00f3ff]/5 p-3 rounded border border-[#00f3ff]/30 shadow-[0_0_10px_rgba(0,243,255,0.1)]">
+                    <h2 class="text-xs font-mono text-[#00f3ff] mb-2 uppercase">> Extensão de Tela (PiP)</h2>
+                    <button id="btn-pip" class="w-full py-2 bg-[#00f3ff]/10 text-[#00f3ff] font-bold text-xs font-mono border border-[#00f3ff] hover:bg-[#00f3ff]/30 transition flex items-center justify-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
+                        DESTACAR MINIMAPA
+                    </button>
+                </section>
                 
             </div>
         </div>
@@ -233,14 +242,19 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
 
-        <div class="absolute top-4 right-4 z-10 bg-black/80 text-[#00f3ff] font-mono text-[10px] px-3 py-1 border border-[#00f3ff]/30 backdrop-blur rounded pointer-events-none">
-            MOUSE: <span id="hud-mouse">X:0 Y:0</span> | ZM: <span id="hud-scale">1.0x</span>
+        <div class="absolute top-4 right-4 z-10 bg-black/80 text-[#00f3ff] font-mono text-[10px] px-3 py-1 border border-[#00f3ff]/30 backdrop-blur rounded pointer-events-none flex flex-col items-end gap-1">
+            <div>MOUSE: <span id="hud-mouse">X:0 Y:0</span> | ZM: <span id="hud-scale">1.0x</span></div>
         </div>
         
         <canvas id="tactical-canvas" class="absolute top-0 left-0 w-full h-full cursor-crosshair"></canvas>
     </main>
 
     <script>
+        // Variáveis globais para o Picture-in-Picture (Pop-out minimap)
+        window.pipWindow = null;
+        window.pipCanvas = null;
+        window.pipCtx = null;
+
         // --- 1. CORE UTILS & DATA STRUCTURES ---
         class SystemLog {
             constructor() {}
@@ -765,7 +779,10 @@
                 this.assets = { terrain: new Image(), topo: new Image() };
 
                 this.config = { mode: 'ping', shader: 'terrain', layers: { deedsActive: true, deedsFallen: true, highways: true, bridges: true, tunnels: true, canals: true, specials: false, grid: true } };
+                
+                // Múltiplas Câmeras
                 this.camera = { x: -1000, y: -1000, scale: 0.5 };
+                this.pipCamera = { x: -1000, y: -1000, scale: 0.1 }; // Usada pelo Picture-in-Picture
                 
                 this.isDragging = false; this.dragStart = { x: 0, y: 0 };
                 this.targetPing = null; this.persistentPing = null; 
@@ -824,7 +841,6 @@
                     ctx.drawImage(img, 0, 0);
                     const imgData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
 
-                    // Rasteriza o Oceano Natural
                     for (let y = 0; y < this.gridRows; y++) {
                         for (let x = 0; x < this.gridCols; x++) {
                             const px = Math.min(x * this.gridCellSize + Math.floor(this.gridCellSize / 2), tempCanvas.width - 1);
@@ -832,14 +848,12 @@
                             const idx = (py * tempCanvas.width + px) * 4;
                             const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
 
-                            // CORREÇÃO: Tolerância levemente ampliada para aceitar águas de diversos mapas topográficos
                             if (b > 40 && b > r + 5 && b > g + 2 && r < 140) {
                                 this.waterGrid[y * this.gridCols + x] = 1;
                             }
                         }
                     }
 
-                    // A MÁGICA HÍBRIDA: Configura os saltos vetoriais e a Área de Captura (Catchment Area)
                     if (this.data && this.data.waterNodes) {
                         this.data.waterNodes.forEach(node => {
                             const gx = Math.floor(node.x / this.gridCellSize);
@@ -857,26 +871,18 @@
                             });
                             
                             if (validEdges.length > 0) {
-                                // CORREÇÃO DE ROTEAMENTO MARÍTIMO: 
-                                // Expande os gatilhos do nó para os 9 blocos ao redor (3x3).
-                                // Isso impede que o A* ande "perto" do canal, mas não engatilhe a conexão vetorial.
                                 for(let dy=-1; dy<=1; dy++) {
                                     for(let dx=-1; dx<=1; dx++) {
                                         const nx = gx + dx, ny = gy + dy;
                                         if (nx >= 0 && ny >= 0 && nx < this.gridCols && ny < this.gridRows) {
                                             const nidx = ny * this.gridCols + nx;
+                                            if (!this.gridToVectorEdges.has(nidx)) this.gridToVectorEdges.set(nidx, []);
                                             
-                                            if (!this.gridToVectorEdges.has(nidx)) {
-                                                this.gridToVectorEdges.set(nidx, []);
-                                            }
-                                            
-                                            // Registra conexões sem duplicar
                                             validEdges.forEach(ve => {
                                                 const existing = this.gridToVectorEdges.get(nidx);
                                                 if (!existing.some(e => e.tidx === ve.tidx)) existing.push(ve);
                                             });
-                                            
-                                            this.waterGrid[nidx] = 2; // Marca efetivamente como navegável
+                                            this.waterGrid[nidx] = 2; 
                                         }
                                     }
                                 }
@@ -885,9 +891,7 @@
                     }
 
                     this.waterGridBuilt = true;
-                    if(this.config.mode === 'route-maritime' && this.routePoints.length >= 2) {
-                        this.calculateRoute();
-                    }
+                    if(this.config.mode === 'route-maritime' && this.routePoints.length >= 2) this.calculateRoute();
 
                 } catch (e) {
                     console.error("Não foi possível gerar a malha de água. Erro CORS ou Imagem bloqueada.", e);
@@ -906,11 +910,7 @@
                 while (true) {
                     if (x0 < 0 || y0 < 0 || x0 >= this.gridCols || y0 >= this.gridRows) return false;
                     const cellVal = this.waterGrid[y0 * this.gridCols + x0];
-                    
-                    if (cellVal === 0) return false; // Terra
-                    // CORREÇÃO: O bloqueio de suavização por Canais (cellVal === 2) foi removido
-                    // para permitir que as linhas retas entrem/saiam dos rios vetoriais com naturalidade.
-
+                    if (cellVal === 0) return false; 
                     if (x0 === x1 && y0 === y1) break;
                     let e2 = 2 * err;
                     if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -1090,8 +1090,6 @@
                     this.camera.y = Math.floor((this.canvas.height / 2) - (y * this.camera.scale));
                 }
                 this.targetPing = { x, y, radius: 0 }; this.persistentPing = { x, y }; 
-                const hudSel = document.getElementById('hud-selected');
-                if(hudSel) hudSel.value = `X:${x}, Y:${y}`;
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 urlParams.set('pos', `${Math.round(x)},${Math.round(y)}`);
@@ -1200,7 +1198,6 @@
                     for(let r=1; r<=30; r++) { 
                         for(let dy=-r; dy<=r; dy++) {
                             for(let dx=-r; dx<=r; dx++) {
-                                // CORREÇÃO: Otimização severa que verifica apenas o perímetro, evitando lags pesados
                                 if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; 
                                 let nx = gx+dx, ny = gy+dy;
                                 if(nx>=0 && ny>=0 && nx<cols && ny<rows && this.waterGrid[ny*cols+nx] > 0) {
@@ -1243,7 +1240,7 @@
                     closedSet[currentIdx] = 1;
 
                     if (++iterations % 3000 === 0) { await new Promise(r => setTimeout(r, 0)); }
-                    if (iterations > 250000) return null; // Prevenção de loop infinito aumentada
+                    if (iterations > 250000) return null; 
 
                     const cy = Math.floor(currentIdx / cols);
                     const cx = currentIdx % cols;
@@ -1426,20 +1423,20 @@
                 if (this.pending) return; this.pending = true; requestAnimationFrame(() => this.render());
             }
 
-            drawAlphanumericGrid(ctx, mapSize) {
+            drawAlphanumericGrid(ctx, mapSize, camera, width, height) {
                 const gridSize = 200; 
-                ctx.beginPath(); ctx.strokeStyle = this.config.shader === 'topo' ? 'rgba(0, 150, 255, 0.4)' : 'rgba(255, 255, 255, 0.15)'; ctx.lineWidth = 1 / this.camera.scale;
+                ctx.beginPath(); ctx.strokeStyle = this.config.shader === 'topo' ? 'rgba(0, 150, 255, 0.4)' : 'rgba(255, 255, 255, 0.15)'; ctx.lineWidth = 1 / camera.scale;
                 for (let i = 0; i <= mapSize; i += gridSize) { ctx.moveTo(i, 0); ctx.lineTo(i, mapSize); ctx.moveTo(0, i); ctx.lineTo(mapSize, i); }
                 ctx.stroke();
 
-                if (this.camera.scale > 0.4) {
+                if (camera.scale > 0.4) {
                     ctx.fillStyle = this.config.shader === 'topo' ? 'rgba(0, 243, 255, 0.7)' : 'rgba(255, 255, 255, 0.4)';
-                    ctx.font = `bold ${16 / this.camera.scale}px 'JetBrains Mono'`;
+                    ctx.font = `bold ${16 / camera.scale}px 'JetBrains Mono'`;
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     const getLetter = (num) => { let l = ''; while(num>0){ let m=(num-1)%26; l=String.fromCharCode(65+m)+l; num=Math.floor((num-m)/26); } return l; };
                     
-                    const sX = Math.max(0, Math.floor(-this.camera.x / this.camera.scale)), sY = Math.max(0, Math.floor(-this.camera.y / this.camera.scale));
-                    const eX = Math.min(mapSize, sX + (this.canvas.width / this.camera.scale)), eY = Math.min(mapSize, sY + (this.canvas.height / this.camera.scale));
+                    const sX = Math.max(0, Math.floor(-camera.x / camera.scale)), sY = Math.max(0, Math.floor(-camera.y / camera.scale));
+                    const eX = Math.min(mapSize, sX + (width / camera.scale)), eY = Math.min(mapSize, sY + (height / camera.scale));
 
                     for (let x = Math.floor(sX/gridSize)*gridSize; x <= eX; x += gridSize) {
                         for (let y = Math.floor(sY/gridSize)*gridSize; y <= eY; y += gridSize) {
@@ -1450,30 +1447,44 @@
                 }
             }
 
-            drawDirectionArrow(ctx, x, y, angle, color) {
-                const size = 12 / this.camera.scale;
+            drawDirectionArrow(ctx, x, y, angle, color, camera) {
+                const size = 12 / camera.scale;
                 ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.beginPath();
                 ctx.moveTo(0, 0); ctx.lineTo(-size, size / 1.5); ctx.lineTo(-size, -size / 1.5); ctx.closePath();
                 ctx.fillStyle = color; ctx.fill(); ctx.restore();
             }
 
-            render() {
-                this.pending = false; 
+            drawText(ctx, text, x, y, color, fontSize, isCenter = false, camera) {
+                if (camera.scale > 0.4) {
+                    ctx.fillStyle = color; ctx.font = `bold ${fontSize / camera.scale}px 'Rajdhani'`;
+                    ctx.strokeStyle = 'black'; ctx.lineWidth = 3 / camera.scale;
+                    ctx.textAlign = isCenter ? 'center' : 'left';
+                    const dX = Math.round(x + (isCenter ? 0 : 8/camera.scale)); 
+                    const dY = Math.round(y + (isCenter ? 0 : 4/camera.scale));
+                    ctx.strokeText(text, dX, dY); ctx.fillText(text, dX, dY); ctx.textAlign = 'left';
+                }
+            }
 
-                if (!this.waterGridAttempted && this.assets.topo && this.assets.topo.complete && this.assets.topo.naturalWidth > 0) {
-                    this.buildOceanGrid();
+            drawScene(ctx, camera, width, height, isPip = false) {
+                ctx.imageSmoothingEnabled = false; 
+                if(!isPip) {
+                    ctx.fillStyle = '#050505'; 
+                    ctx.fillRect(0, 0, width, height);
                 }
 
-                const ctx = this.ctx;
-                ctx.imageSmoothingEnabled = false; ctx.fillStyle = '#050505'; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                ctx.save(); ctx.translate(Math.round(this.camera.x), Math.round(this.camera.y)); ctx.scale(this.camera.scale, this.camera.scale);
+                ctx.save(); 
+                ctx.translate(Math.round(camera.x), Math.round(camera.y)); 
+                ctx.scale(camera.scale, camera.scale);
 
                 const imgToDraw = this.config.shader === 'terrain' ? this.assets.terrain : this.assets.topo;
                 let mapSize = 6000; 
-                if (imgToDraw.complete && imgToDraw.naturalWidth > 0) { ctx.drawImage(imgToDraw, 0, 0); mapSize = imgToDraw.naturalWidth; } 
-                else { ctx.fillStyle = this.config.shader === 'terrain' ? '#0a1f0f' : '#051224'; ctx.fillRect(0, 0, mapSize, mapSize); }
+                if (imgToDraw.complete && imgToDraw.naturalWidth > 0) { 
+                    ctx.drawImage(imgToDraw, 0, 0); mapSize = imgToDraw.naturalWidth; 
+                } else { 
+                    ctx.fillStyle = this.config.shader === 'terrain' ? '#0a1f0f' : '#051224'; ctx.fillRect(0, 0, mapSize, mapSize); 
+                }
 
-                if (this.config.layers.grid) this.drawAlphanumericGrid(ctx, mapSize);
+                if (this.config.layers.grid) this.drawAlphanumericGrid(ctx, mapSize, camera, width, height);
 
                 if (this.overlayImage && this.overlayOpacity > 0) {
                     const drawW = this.overlayImage.width * this.overlayScale;
@@ -1482,24 +1493,24 @@
                     ctx.globalAlpha = this.overlayOpacity;
                     ctx.drawImage(this.overlayImage, this.overlayX, this.overlayY, drawW, drawH);
                     ctx.strokeStyle = `rgba(0, 243, 255, ${this.overlayOpacity})`;
-                    ctx.lineWidth = 2 / this.camera.scale;
-                    ctx.setLineDash([10 / this.camera.scale, 10 / this.camera.scale]);
+                    ctx.lineWidth = 2 / camera.scale;
+                    ctx.setLineDash([10 / camera.scale, 10 / camera.scale]);
                     ctx.strokeRect(this.overlayX, this.overlayY, drawW, drawH);
                     ctx.restore();
                 }
 
                 const drawSimplePath = (paths, color, w, dashed = false, drawNames = false) => {
-                    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = w / this.camera.scale;
-                    if(dashed) ctx.setLineDash([12 / this.camera.scale, 8 / this.camera.scale]);
+                    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = w / camera.scale;
+                    if(dashed) ctx.setLineDash([12 / camera.scale, 8 / camera.scale]);
                     
                     paths.forEach(p => { 
                         ctx.moveTo(p.path[0][0], p.path[0][1]); 
                         for(let j=1; j<p.path.length; j++) ctx.lineTo(p.path[j][0], p.path[j][1]); 
-                        if (drawNames && p.name && this.camera.scale > 0.6 && p.path.length >= 2) {
+                        if (drawNames && p.name && camera.scale > 0.6 && p.path.length >= 2) {
                             const midIdx = Math.floor(p.path.length / 2);
                             const p1 = p.path[Math.max(0, midIdx - 1)]; const p2 = p.path[Math.min(p.path.length-1, midIdx)];
                             const midX = (p1[0] + p2[0]) / 2; const midY = (p1[1] + p2[1]) / 2;
-                            ctx.save(); this.drawText(ctx, p.name, midX, midY, color, 14, true); ctx.restore();
+                            ctx.save(); this.drawText(ctx, p.name, midX, midY, color, 14, true, camera); ctx.restore();
                         }
                     });
                     ctx.stroke(); ctx.setLineDash([]);
@@ -1519,7 +1530,6 @@
                 
                 if (this.config.layers.canals && this.data) {
                     drawSimplePath(this.data.canals, '#00aaff', 4, false, true); 
-                    
                     drawSimplePath(this.data.canalTunnels, '#00aaff', 6, true, true); 
                     drawSimplePath(this.data.canalTunnels, '#ff003c', 3, true, false); 
                 }
@@ -1540,10 +1550,10 @@
                             grad.addColorStop(0, getRainbowColor(r1));
                             grad.addColorStop(1, getRainbowColor(r2));
 
-                            ctx.beginPath(); ctx.strokeStyle = grad; ctx.lineWidth = 5 / this.camera.scale; ctx.setLineDash([15 / this.camera.scale, 10 / this.camera.scale]);
+                            ctx.beginPath(); ctx.strokeStyle = grad; ctx.lineWidth = 5 / camera.scale; ctx.setLineDash([15 / camera.scale, 10 / camera.scale]);
                             ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
                             
-                            this.drawDirectionArrow(ctx, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff');
+                            this.drawDirectionArrow(ctx, (p1.x + p2.x) / 2, (p1.y + p2.y) / 2, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff', camera);
                         }
                         ctx.setLineDash([]);
                     } else if (this.config.mode === 'route-smart' || this.config.mode === 'route-maritime') {
@@ -1554,11 +1564,11 @@
                             const pathLen = seg.path.length;
 
                             if (pathLen > 0) {
-                                ctx.beginPath(); ctx.strokeStyle = getRainbowColor(segStartRatio); ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                                ctx.beginPath(); ctx.strokeStyle = getRainbowColor(segStartRatio); ctx.lineWidth = 4 / camera.scale; ctx.setLineDash([8 / camera.scale, 8 / camera.scale]); 
                                 ctx.moveTo(seg.start.x, seg.start.y); ctx.lineTo(seg.path[0].x, seg.path[0].y); ctx.stroke();
                                 
                                 ctx.setLineDash([]);
-                                ctx.lineWidth = 8 / this.camera.scale;
+                                ctx.lineWidth = 8 / camera.scale;
                                 
                                 for(let k = 0; k < pathLen - 1; k++) {
                                     const pt1 = seg.path[k];
@@ -1572,14 +1582,14 @@
                                     ctx.stroke();
                                 }
                                 
-                                ctx.beginPath(); ctx.strokeStyle = getRainbowColor(segEndRatio); ctx.lineWidth = 4 / this.camera.scale; ctx.setLineDash([8 / this.camera.scale, 8 / this.camera.scale]); 
+                                ctx.beginPath(); ctx.strokeStyle = getRainbowColor(segEndRatio); ctx.lineWidth = 4 / camera.scale; ctx.setLineDash([8 / camera.scale, 8 / camera.scale]); 
                                 ctx.moveTo(seg.path[pathLen - 1].x, seg.path[pathLen - 1].y); ctx.lineTo(seg.end.x, seg.end.y); ctx.stroke();
                                 ctx.setLineDash([]);
                                 
                                 if (pathLen >= 2) {
                                     const midIndex = Math.floor(pathLen / 2);
                                     const p1 = seg.path[Math.max(0, midIndex - 1)], p2 = seg.path[Math.min(pathLen - 1, midIndex + 1)];
-                                    this.drawDirectionArrow(ctx, seg.path[midIndex].x, seg.path[midIndex].y, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff');
+                                    this.drawDirectionArrow(ctx, seg.path[midIndex].x, seg.path[midIndex].y, Math.atan2(p2.y - p1.y, p2.x - p1.x), '#fff', camera);
                                 }
                             }
                         });
@@ -1589,57 +1599,83 @@
                 if (this.routePoints.length > 0) {
                     const getRainbowColor = (ratio) => `hsl(${Math.floor(ratio * 280)}, 100%, 50%)`;
                     this.routePoints.forEach((p, index) => {
-                        ctx.beginPath(); ctx.arc(p.x, p.y, 6 / this.camera.scale, 0, 6.28);
+                        ctx.beginPath(); ctx.arc(p.x, p.y, 6 / camera.scale, 0, 6.28);
                         const ratio = this.routePoints.length > 1 ? index / (this.routePoints.length - 1) : 0;
                         ctx.fillStyle = getRainbowColor(ratio); ctx.fill();
-                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 / this.camera.scale; ctx.stroke();
-                        this.drawText(ctx, String.fromCharCode(65+index), p.x, p.y - (12/this.camera.scale), '#fff', 16, true);
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2 / camera.scale; ctx.stroke();
+                        this.drawText(ctx, String.fromCharCode(65+index), p.x, p.y - (12/camera.scale), '#fff', 16, true, camera);
                     });
                 }
 
                 if (this.config.layers.specials && this.data) {
                     this.data.specials.forEach(s => {
                         ctx.fillStyle = '#ffaa00'; ctx.beginPath();
-                        ctx.moveTo(s.x, s.y - (5/this.camera.scale)); ctx.lineTo(s.x + (5/this.camera.scale), s.y + (5/this.camera.scale)); ctx.lineTo(s.x - (5/this.camera.scale), s.y + (5/this.camera.scale)); ctx.fill();
-                        this.drawText(ctx, s.name, s.x, s.y + (12/this.camera.scale), '#ffaa00', 14, true);
+                        ctx.moveTo(s.x, s.y - (5/camera.scale)); ctx.lineTo(s.x + (5/camera.scale), s.y + (5/camera.scale)); ctx.lineTo(s.x - (5/camera.scale), s.y + (5/camera.scale)); ctx.fill();
+                        this.drawText(ctx, s.name, s.x, s.y + (12/camera.scale), '#ffaa00', 14, true, camera);
                     });
                 }
 
                 if (this.data && (this.config.layers.deedsActive || this.config.layers.deedsFallen)) {
-                    const r = 4 / this.camera.scale;
+                    const r = 4 / camera.scale;
                     this.data.deeds.forEach(d => {
                         if ((!d.isHidden && this.config.layers.deedsActive) || (d.isHidden && this.config.layers.deedsFallen)) {
                             ctx.fillStyle = d.isHidden ? '#ff003c' : '#00ff66';
                             ctx.beginPath(); ctx.arc(Math.round(d.x), Math.round(d.y), r, 0, 6.28); ctx.fill();
-                            this.drawText(ctx, d.name, d.x, d.y, 'rgba(255,255,255,1)', 14);
+                            this.drawText(ctx, d.name, d.x, d.y, 'rgba(255,255,255,1)', 14, false, camera);
                         }
                     });
                 }
 
                 if (this.persistentPing) {
-                    const size = 15 / this.camera.scale;
-                    ctx.beginPath(); ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 3 / this.camera.scale;
+                    const size = 15 / camera.scale;
+                    ctx.beginPath(); ctx.strokeStyle = '#00f3ff'; ctx.lineWidth = 3 / camera.scale;
                     ctx.moveTo(this.persistentPing.x - size, this.persistentPing.y); ctx.lineTo(this.persistentPing.x + size, this.persistentPing.y);
                     ctx.moveTo(this.persistentPing.x, this.persistentPing.y - size); ctx.lineTo(this.persistentPing.x, this.persistentPing.y + size);
                     ctx.stroke();
                 }
 
                 if (this.targetPing) {
-                    ctx.beginPath(); ctx.arc(this.targetPing.x, this.targetPing.y, this.targetPing.radius / this.camera.scale, 0, 6.28);
-                    ctx.strokeStyle = `rgba(0, 243, 255, ${1 - (this.targetPing.radius/120)})`; ctx.lineWidth = 3 / this.camera.scale; ctx.stroke();
+                    ctx.beginPath(); ctx.arc(this.targetPing.x, this.targetPing.y, this.targetPing.radius / camera.scale, 0, 6.28);
+                    ctx.strokeStyle = `rgba(0, 243, 255, ${1 - (this.targetPing.radius/120)})`; ctx.lineWidth = 3 / camera.scale; ctx.stroke();
+                }
+
+                // Desenha o Retângulo de Visão da Câmera Principal DENTRO do Minimapa
+                if (isPip) {
+                    ctx.save();
+                    const mainStartX = -this.camera.x / this.camera.scale;
+                    const mainStartY = -this.camera.y / this.camera.scale;
+                    const mainViewW = this.canvas.width / this.camera.scale;
+                    const mainViewH = this.canvas.height / this.camera.scale;
+
+                    ctx.strokeStyle = '#00f3ff';
+                    ctx.lineWidth = 2 / camera.scale;
+                    ctx.setLineDash([10 / camera.scale, 10 / camera.scale]);
+                    ctx.strokeRect(mainStartX, mainStartY, mainViewW, mainViewH);
+                    
+                    ctx.fillStyle = 'rgba(0, 243, 255, 0.05)';
+                    ctx.fillRect(mainStartX, mainStartY, mainViewW, mainViewH);
+                    ctx.restore();
                 }
 
                 ctx.restore();
             }
 
-            drawText(ctx, text, x, y, color, fontSize, isCenter = false) {
-                if (this.camera.scale > 0.4) {
-                    ctx.fillStyle = color; ctx.font = `bold ${fontSize / this.camera.scale}px 'Rajdhani'`;
-                    ctx.strokeStyle = 'black'; ctx.lineWidth = 3 / this.camera.scale;
-                    ctx.textAlign = isCenter ? 'center' : 'left';
-                    const dX = Math.round(x + (isCenter ? 0 : 8/this.camera.scale)); 
-                    const dY = Math.round(y + (isCenter ? 0 : 4/this.camera.scale));
-                    ctx.strokeText(text, dX, dY); ctx.fillText(text, dX, dY); ctx.textAlign = 'left';
+            render() {
+                this.pending = false; 
+
+                if (!this.waterGridAttempted && this.assets.topo && this.assets.topo.complete && this.assets.topo.naturalWidth > 0) {
+                    this.buildOceanGrid();
+                }
+
+                // TELA PRINCIPAL
+                this.drawScene(this.ctx, this.camera, this.canvas.width, this.canvas.height, false);
+
+                // TELA PICTURE-IN-PICTURE (PIP) COM CÂMERA INDEPENDENTE
+                if (window.pipCtx && window.pipCanvas && window.pipWindow) {
+                    window.pipCtx.fillStyle = '#050505';
+                    window.pipCtx.fillRect(0, 0, window.pipCanvas.width, window.pipCanvas.height);
+                    
+                    this.drawScene(window.pipCtx, this.pipCamera, window.pipCanvas.width, window.pipCanvas.height, true);
                 }
             }
         }
@@ -1654,6 +1690,115 @@
 
             window.removeRP = (i) => mapEngine.removeRoutePoint(i);
             window.makeFirstRP = (i) => mapEngine.makeFirstRoutePoint(i);
+
+            // --- LÓGICA DO PICTURE-IN-PICTURE (PIP) ---
+            const btnPip = document.getElementById('btn-pip');
+
+            btnPip?.addEventListener('click', async () => {
+                if (!('documentPictureInPicture' in window)) {
+                    alert("Seu navegador não suporta a API moderna de Document Picture-in-Picture. Use o Google Chrome ou Edge atualizados.");
+                    return;
+                }
+
+                if (window.pipWindow) {
+                    window.pipWindow.close();
+                    return;
+                }
+
+                try {
+                    window.pipWindow = await window.documentPictureInPicture.requestWindow({
+                        width: 450,
+                        height: 300
+                    });
+
+                    const pipBody = window.pipWindow.document.body;
+                    pipBody.innerHTML = `
+                        <style>
+                            body { margin: 0; padding: 0; overflow: hidden; background-color: #050505; display: flex; align-items: center; justify-content: center; font-family: 'JetBrains Mono', monospace; user-select: none; }
+                            canvas { width: 100vw; height: 100vh; object-fit: contain; cursor: grab; }
+                            canvas:active { cursor: grabbing; }
+                            .pip-info { position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 5px; color: white; font-size: 10px; pointer-events: none; transition: opacity 0.3s; }
+                            body:hover .pip-info { opacity: 1; }
+                            body:not(:hover) .pip-info { opacity: 0.2; }
+                        </style>
+                        <canvas id="pip-canvas"></canvas>
+                        <div class="pip-info">
+                            Scroll: Zoom | Arraste: Mover | Duplo-Clique: Focar Mapa Principal
+                        </div>
+                    `;
+
+                    window.pipCanvas = window.pipWindow.document.getElementById('pip-canvas');
+                    window.pipCtx = window.pipCanvas.getContext('2d');
+
+                    // Sincroniza Tamanho do Canvas PiP com a Janela do S.O.
+                    const resizePip = () => {
+                        window.pipCanvas.width = window.pipWindow.innerWidth;
+                        window.pipCanvas.height = window.pipWindow.innerHeight;
+                        mapEngine.scheduleRender();
+                    };
+                    window.pipWindow.addEventListener('resize', resizePip);
+                    resizePip();
+
+                    // Transfere o centro visual atual da câmera principal para a PiP (zoom menor para dar visão geral)
+                    const cx = (-mapEngine.camera.x + mapEngine.canvas.width / 2) / mapEngine.camera.scale;
+                    const cy = (-mapEngine.camera.y + mapEngine.canvas.height / 2) / mapEngine.camera.scale;
+                    mapEngine.pipCamera.scale = Math.max(0.05, mapEngine.camera.scale * 0.2);
+                    mapEngine.pipCamera.x = window.pipWindow.innerWidth / 2 - cx * mapEngine.pipCamera.scale;
+                    mapEngine.pipCamera.y = window.pipWindow.innerHeight / 2 - cy * mapEngine.pipCamera.scale;
+
+                    // INTERAÇÕES NO MINIMAPA FLUTUANTE (Arrastar)
+                    let pipIsDragging = false;
+                    let pipDragStart = { x: 0, y: 0 };
+
+                    window.pipCanvas.addEventListener('mousedown', e => {
+                        pipIsDragging = true;
+                        pipDragStart = { x: e.clientX - mapEngine.pipCamera.x, y: e.clientY - mapEngine.pipCamera.y };
+                    });
+
+                    window.pipWindow.addEventListener('mouseup', () => { pipIsDragging = false; });
+
+                    window.pipCanvas.addEventListener('mousemove', e => {
+                        if (pipIsDragging) {
+                            mapEngine.pipCamera.x = e.clientX - pipDragStart.x;
+                            mapEngine.pipCamera.y = e.clientY - pipDragStart.y;
+                            mapEngine.scheduleRender();
+                        }
+                    });
+
+                    // INTERAÇÕES NO MINIMAPA FLUTUANTE (Zoom)
+                    window.pipCanvas.addEventListener('wheel', e => {
+                        e.preventDefault();
+                        const zFactor = Math.exp((e.deltaY < 0 ? 1 : -1) * 0.1);
+                        const mx = e.clientX, my = e.clientY;
+                        const tx = (mx - mapEngine.pipCamera.x) / mapEngine.pipCamera.scale;
+                        const ty = (my - mapEngine.pipCamera.y) / mapEngine.pipCamera.scale;
+
+                        mapEngine.pipCamera.scale = Math.max(0.01, Math.min(mapEngine.pipCamera.scale * zFactor, 8));
+                        mapEngine.pipCamera.x = mx - (tx * mapEngine.pipCamera.scale);
+                        mapEngine.pipCamera.y = my - (ty * mapEngine.pipCamera.scale);
+                        mapEngine.scheduleRender();
+                    }, { passive: false });
+
+                    // DUPLO CLIQUE NO MINIMAPA CENTRALIZA O MAPA PRINCIPAL NELE!
+                    window.pipCanvas.addEventListener('dblclick', e => {
+                        const worldX = Math.round((e.clientX - mapEngine.pipCamera.x) / mapEngine.pipCamera.scale);
+                        const worldY = Math.round((e.clientY - mapEngine.pipCamera.y) / mapEngine.pipCamera.scale);
+                        mapEngine.focusCamera(worldX, worldY, false, true); // Move o mapa principal
+                    });
+
+                    window.pipWindow.addEventListener('pagehide', () => {
+                        window.pipWindow = null;
+                        window.pipCanvas = null;
+                        window.pipCtx = null;
+                        mapEngine.scheduleRender();
+                    });
+                    
+                    mapEngine.scheduleRender();
+                } catch (err) {
+                    console.error("Erro ao iniciar PiP:", err);
+                }
+            });
+            // ------------------------------------------
 
             const sidebar = document.getElementById('sidebar');
             document.getElementById('mobile-menu-btn')?.addEventListener('click', () => sidebar?.classList.remove('-translate-x-full'));
