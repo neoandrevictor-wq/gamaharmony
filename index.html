@@ -626,19 +626,42 @@
 
                         this.data.specials = getTab("Special").map(row => ({ name: row[0], x: parseInt(row[1]), y: parseInt(row[2]) })).filter(s => !isNaN(s.x));
                         
-                        const parsePathJSON = row => { try { return { name: row[0], path: JSON.parse(row[1]) }; } catch(e) { return null; } };
-                        this.data.highways = getTab("Highways").map(parsePathJSON).filter(v=>v);
-                        
-                        const parseSegment = row => { if(row.length >= 5) return { name: row[0], path: [ [parseInt(row[1]), parseInt(row[2])], [parseInt(row[3]), parseInt(row[4])] ] }; return null; };
-                        this.data.bridges = getTab("Bridges").map(parseSegment).filter(v=>v);
+                        // Correção para Ler Caminhos Flexíveis (Legado Segmento VS Moderno JSON)
+                        const parseDynamicPath = (row) => {
+                            if (!row || row.length < 2) return null;
+                            try {
+                                const pathArr = JSON.parse(row[1]);
+                                if (Array.isArray(pathArr) && pathArr.length > 0) return { name: row[0], path: pathArr };
+                            } catch(e) {}
+                            
+                            if (row.length >= 5) {
+                                const p1x = parseInt(row[1]), p1y = parseInt(row[2]);
+                                const p2x = parseInt(row[3]), p2y = parseInt(row[4]);
+                                if (!isNaN(p1x) && !isNaN(p1y) && !isNaN(p2x) && !isNaN(p2y)) {
+                                    return { name: row[0], path: [ [p1x, p1y], [p2x, p2y] ] };
+                                }
+                            }
+                            return null;
+                        };
+
+                        this.data.highways = getTab("Highways").map(parseDynamicPath).filter(v=>v);
+                        this.data.bridges = getTab("Bridges").map(parseDynamicPath).filter(v=>v);
                         
                         const rawTunnels = getTab("Tunnels");
                         rawTunnels.forEach(row => {
-                            if (row.length >= 5) {
-                                // CORREÇÃO: Robustez na conversão de Booleanos do Google Sheets
-                                const isWater = String(row[5]).toUpperCase() === "TRUE";
-                                const isTunnel = String(row[6]).toUpperCase() === "TRUE";
-                                const pathObj = { name: row[0], path: [ [parseInt(row[1]), parseInt(row[2])], [parseInt(row[3]), parseInt(row[4])] ] };
+                            const pathObj = parseDynamicPath(row);
+                            if (pathObj) {
+                                let isWater = false;
+                                let isTunnel = false;
+                                
+                                // Detecção inteligente de colunas (Legado vs JSON Moderno)
+                                if (row.length >= 7 && !isNaN(parseInt(row[2]))) {
+                                    isWater = String(row[5]).toUpperCase() === "TRUE";
+                                    isTunnel = String(row[6]).toUpperCase() === "TRUE";
+                                } else {
+                                    isWater = row.length > 2 && String(row[2]).toUpperCase() === "TRUE";
+                                    isTunnel = row.length > 3 && String(row[3]).toUpperCase() === "TRUE";
+                                }
                                 
                                 if (isWater && isTunnel) {
                                     this.data.canalTunnels.push(pathObj);
@@ -855,6 +878,7 @@
                     }
 
                     if (this.data && this.data.waterNodes) {
+                        const BRUSH_SIZE = 2; // Pincel maior para garantir conexão do Canal de Vetor com o Píxel de Oceano Real
                         this.data.waterNodes.forEach(node => {
                             const gx = Math.floor(node.x / this.gridCellSize);
                             const gy = Math.floor(node.y / this.gridCellSize);
@@ -871,8 +895,8 @@
                             });
                             
                             if (validEdges.length > 0) {
-                                for(let dy=-1; dy<=1; dy++) {
-                                    for(let dx=-1; dx<=1; dx++) {
+                                for(let dy = -BRUSH_SIZE; dy <= BRUSH_SIZE; dy++) {
+                                    for(let dx = -BRUSH_SIZE; dx <= BRUSH_SIZE; dx++) {
                                         const nx = gx + dx, ny = gy + dy;
                                         if (nx >= 0 && ny >= 0 && nx < this.gridCols && ny < this.gridRows) {
                                             const nidx = ny * this.gridCols + nx;
@@ -882,7 +906,7 @@
                                                 const existing = this.gridToVectorEdges.get(nidx);
                                                 if (!existing.some(e => e.tidx === ve.tidx)) existing.push(ve);
                                             });
-                                            this.waterGrid[nidx] = 2; 
+                                            this.waterGrid[nidx] = 2; // Define Malha Náutica Canal/Túnel
                                         }
                                     }
                                 }
@@ -1310,12 +1334,22 @@
                 rawPath[0] = { x: start.x, y: start.y, isExact: true };
                 rawPath[rawPath.length - 1] = { x: end.x, y: end.y, isExact: true };
 
+                // Otimização Estrutural do LOS: Garante a entrada milimétrica nos Canais 
                 const smoothed = [rawPath[0]];
                 let currentPos = 0;
                 while (currentPos < rawPath.length - 1) {
                     let furthestVisible = currentPos + 1;
+                    
                     if (!rawPath[currentPos].isExact) {
-                        for (let i = rawPath.length - 1; i > currentPos; i--) {
+                        let searchLimit = currentPos + 1;
+                        while (searchLimit < rawPath.length && !rawPath[searchLimit].isExact) {
+                            searchLimit++;
+                        }
+                        if (searchLimit >= rawPath.length || !rawPath[searchLimit].isExact) {
+                            searchLimit = rawPath.length - 1;
+                        }
+
+                        for (let i = searchLimit; i > currentPos; i--) {
                             if (this.hasWaterLineOfSight(rawPath[currentPos], rawPath[i])) {
                                 furthestVisible = i;
                                 break;
