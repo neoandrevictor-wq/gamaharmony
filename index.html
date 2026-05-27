@@ -80,7 +80,7 @@
                         </optgroup>
                     </select>
                 </div>
-                <p class="text-[10px] font-mono text-gray-400 mt-2">A* PATHFINDING & S.D.E v14</p>
+                <p class="text-[10px] font-mono text-gray-400 mt-2">A* PATHFINDING & S.D.E v14.3</p>
             </div>
             <button id="close-sidebar-btn" class="md:hidden text-gray-400 hover:text-white pt-1 ml-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -683,7 +683,8 @@
             buildLandGraph() {
                 this.data.graph.clear(); this.data.nodes = [];
                 let nodeId = 0; const spatialGrid = new Map();
-                const cellSize = 50, maxConnectionDist = 15, interpolateStep = 10; 
+                
+                const cellSize = 100, maxConnectionDist = 35, interpolateStep = 10; 
 
                 const createNode = (x, y) => {
                     const node = { id: nodeId++, x, y }; this.data.nodes.push(node); this.data.graph.set(node.id, []);
@@ -738,7 +739,8 @@
             buildWaterGraph() {
                 this.data.waterGraph.clear(); this.data.waterNodes = [];
                 let nodeId = 0; const spatialGrid = new Map();
-                const cellSize = 50, maxConnectionDist = 15, interpolateStep = 10; 
+                
+                const cellSize = 100, maxConnectionDist = 45, interpolateStep = 10; 
 
                 const createNode = (x, y) => {
                     const node = { id: nodeId++, x, y }; this.data.waterNodes.push(node); this.data.waterGraph.set(node.id, []);
@@ -818,7 +820,9 @@
 
                 this.waterGridAttempted = false;
                 this.waterGridBuilt = false;
-                this.gridCellSize = 15; 
+                
+                // OTIMIZAÇÃO: Célula expandida para 20. Corta pela metade o uso de CPU no Oceano, evitando Timeouts.
+                this.gridCellSize = 20; 
                 this.waterGrid = null;
                 this.gridCols = 0; this.gridRows = 0;
                 this.gridToVectorEdges = new Map(); 
@@ -871,46 +875,76 @@
                             const idx = (py * tempCanvas.width + px) * 4;
                             const r = imgData[idx], g = imgData[idx+1], b = imgData[idx+2];
 
-                            if (b > 40 && b > r + 5 && b > g + 2 && r < 140) {
+                            // OTIMIZAÇÃO DE COR: Universal para pegar tons azuis intensos OU tons cianos de água rasa (Cadence/Harmony)
+                            if ((b > 35 && b >= r && b >= g && r < 160) || (b > r + 15 && b > g + 5 && b > 30)) {
                                 this.waterGrid[y * this.gridCols + x] = 1;
                             }
                         }
                     }
 
-                    if (this.data && this.data.waterNodes) {
-                        const BRUSH_SIZE = 2; // Pincel maior para garantir conexão do Canal de Vetor com o Píxel de Oceano Real
+                    // Escavação Contínua dos Canais na Matriz
+                    const drawThickLineOnGrid = (x0, y0, x1, y1) => {
+                        const dist = Math.hypot(x1 - x0, y1 - y0);
+                        const steps = Math.max(1, Math.ceil(dist / 5));
+                        
+                        for (let i = 0; i <= steps; i++) {
+                            const px = x0 + (x1 - x0) * (i / steps);
+                            const py = y0 + (y1 - y0) * (i / steps);
+                            const gx = Math.floor(px / this.gridCellSize);
+                            const gy = Math.floor(py / this.gridCellSize);
+                            
+                            // Escava raio de 1 célula (com célula 20px, é um canal de 60x60px. Muito seguro)
+                            for(let dy = -1; dy <= 1; dy++) {
+                                for(let dx = -1; dx <= 1; dx++) {
+                                    const nx = gx + dx, ny = gy + dy;
+                                    if (nx >= 0 && ny >= 0 && nx < this.gridCols && ny < this.gridRows) {
+                                        this.waterGrid[ny * this.gridCols + nx] = 2;
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    if (this.data) {
+                        const processCanalsForGrid = (paths) => {
+                            if (!paths) return;
+                            paths.forEach(route => {
+                                for(let i = 0; i < route.path.length - 1; i++) {
+                                    if (!isNaN(route.path[i][0]) && !isNaN(route.path[i+1][0])) {
+                                        drawThickLineOnGrid(route.path[i][0], route.path[i][1], route.path[i+1][0], route.path[i+1][1]);
+                                    }
+                                }
+                            });
+                        };
+                        processCanalsForGrid(this.data.canals);
+                        processCanalsForGrid(this.data.canalTunnels);
+
                         this.data.waterNodes.forEach(node => {
                             const gx = Math.floor(node.x / this.gridCellSize);
                             const gy = Math.floor(node.y / this.gridCellSize);
-                            
                             const edges = this.data.waterGraph.get(node.id) || [];
-                            const validEdges = [];
                             
                             edges.forEach(e => {
                                 const tNode = this.data.waterNodes[e.target];
                                 const tgx = Math.floor(tNode.x / this.gridCellSize);
                                 const tgy = Math.floor(tNode.y / this.gridCellSize);
                                 const tidx = tgy * this.gridCols + tgx;
-                                validEdges.push({ tidx: tidx, weight: e.weight, exactX: tNode.x, exactY: tNode.y });
-                            });
-                            
-                            if (validEdges.length > 0) {
-                                for(let dy = -BRUSH_SIZE; dy <= BRUSH_SIZE; dy++) {
-                                    for(let dx = -BRUSH_SIZE; dx <= BRUSH_SIZE; dx++) {
+                                
+                                for(let dy = -1; dy <= 1; dy++) {
+                                    for(let dx = -1; dx <= 1; dx++) {
                                         const nx = gx + dx, ny = gy + dy;
                                         if (nx >= 0 && ny >= 0 && nx < this.gridCols && ny < this.gridRows) {
                                             const nidx = ny * this.gridCols + nx;
                                             if (!this.gridToVectorEdges.has(nidx)) this.gridToVectorEdges.set(nidx, []);
                                             
-                                            validEdges.forEach(ve => {
-                                                const existing = this.gridToVectorEdges.get(nidx);
-                                                if (!existing.some(e => e.tidx === ve.tidx)) existing.push(ve);
-                                            });
-                                            this.waterGrid[nidx] = 2; // Define Malha Náutica Canal/Túnel
+                                            const existing = this.gridToVectorEdges.get(nidx);
+                                            if (!existing.some(ve => ve.tidx === tidx)) {
+                                                existing.push({ tidx: tidx, weight: e.weight, exactX: tNode.x, exactY: tNode.y });
+                                            }
                                         }
                                     }
                                 }
-                            }
+                            });
                         });
                     }
 
@@ -1217,19 +1251,22 @@
 
                 const snap = (px, py) => {
                     let gx = Math.floor(px / CELL), gy = Math.floor(py / CELL);
-                    if(gx>=0 && gy>=0 && gx<cols && gy<rows && this.waterGrid[gy*cols+gx] > 0) return {gx, gy, rx: gx*CELL+CELL/2, ry: gy*CELL+CELL/2};
+                    if (gx >= 0 && gy >= 0 && gx < cols && gy < rows && this.waterGrid[gy * cols + gx] > 0) return {gx, gy, rx: gx*CELL+CELL/2, ry: gy*CELL+CELL/2};
                     
-                    for(let r=1; r<=30; r++) { 
-                        for(let dy=-r; dy<=r; dy++) {
-                            for(let dx=-r; dx<=r; dx++) {
-                                if (Math.abs(dx) !== r && Math.abs(dy) !== r) continue; 
-                                let nx = gx+dx, ny = gy+dy;
-                                if(nx>=0 && ny>=0 && nx<cols && ny<rows && this.waterGrid[ny*cols+nx] > 0) {
-                                    return {gx: nx, gy: ny, rx: nx*CELL+CELL/2, ry: ny*CELL+CELL/2};
+                    let bestNode = null; let minDist = Infinity;
+                    for(let r = 1; r <= 30; r++) { 
+                        for(let dy = -r; dy <= r; dy++) {
+                            for(let dx = -r; dx <= r; dx++) {
+                                let nx = gx + dx, ny = gy + dy;
+                                if(nx >= 0 && ny >= 0 && nx < cols && ny < rows && this.waterGrid[ny * cols + nx] > 0) {
+                                    let distSq = dx*dx + dy*dy;
+                                    if (distSq < minDist) { minDist = distSq; bestNode = { gx: nx, gy: ny }; }
                                 }
                             }
                         }
+                        if (bestNode) break; 
                     }
+                    if (bestNode) return { gx: bestNode.gx, gy: bestNode.gy, rx: bestNode.gx*CELL+CELL/2, ry: bestNode.gy*CELL+CELL/2 };
                     return null;
                 };
 
@@ -1263,8 +1300,9 @@
                     if (closedSet[currentIdx]) continue;
                     closedSet[currentIdx] = 1;
 
-                    if (++iterations % 3000 === 0) { await new Promise(r => setTimeout(r, 0)); }
-                    if (iterations > 250000) return null; 
+                    if (++iterations % 5000 === 0) { await new Promise(r => setTimeout(r, 0)); }
+                    // CORREÇÃO CRÍTICA: Bateria do GPS Triplicada para aguentar contornar continentes gigantes
+                    if (iterations > 1500000) { console.warn("GPS Marítimo Excedeu o Limite de Busca Global."); return null; } 
 
                     const cy = Math.floor(currentIdx / cols);
                     const cx = currentIdx % cols;
@@ -1282,9 +1320,8 @@
                                 exactX[nIdx] = edge.exactX;
                                 exactY[nIdx] = edge.exactY;
                                 gScore[nIdx] = tentativeG;
-                                const tcy = Math.floor(nIdx / cols);
-                                const tcx = nIdx % cols;
-                                const h = Math.hypot(e.gx - tcx, e.gy - tcy) * CELL; 
+                                // HEURÍSTICA GULOSA: Multiplicador 1.2x faz o barco contornar continentes em vez de testar todas as poças de água da baía
+                                const h = Math.hypot(e.gx - (nIdx % cols), e.gy - Math.floor(nIdx / cols)) * CELL * 1.2; 
                                 pq.push(nIdx, tentativeG + h);
                             }
                         }
@@ -1310,7 +1347,8 @@
                             cameFrom[nIdx] = currentIdx;
                             isExact[nIdx] = 0;
                             gScore[nIdx] = tentativeG;
-                            const h = Math.hypot(e.gx - nx, e.gy - ny) * CELL; 
+                            // HEURÍSTICA GULOSA: A* agressivo para distâncias globais
+                            const h = Math.hypot(e.gx - nx, e.gy - ny) * CELL * 1.2; 
                             pq.push(nIdx, tentativeG + h);
                         }
                     }
@@ -1334,7 +1372,6 @@
                 rawPath[0] = { x: start.x, y: start.y, isExact: true };
                 rawPath[rawPath.length - 1] = { x: end.x, y: end.y, isExact: true };
 
-                // Otimização Estrutural do LOS: Garante a entrada milimétrica nos Canais 
                 const smoothed = [rawPath[0]];
                 let currentPos = 0;
                 while (currentPos < rawPath.length - 1) {
