@@ -536,9 +536,12 @@
                     logger.sdeLog(`[INFO] Servidor DEFIANCE (XYZ API). Mapa Topo e A* Marítimo funcionarão. O restante depende da API.`, "text-yellow-500 font-bold");
                     
                     try {
+                        const targetRaw = 'https://wurmmaps.xyz/assets/php/marker_read.php?server=defiance';
                         const proxies = [
-                            `https://api.codetabs.com/v1/proxy/?quest=https://wurmmaps.xyz/assets/php/marker_read.php?server=defiance`,
-                            `https://corsproxy.io/?https://wurmmaps.xyz/assets/php/marker_read.php?server=defiance`
+                            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetRaw)}`,
+                            `https://api.codetabs.com/v1/proxy/?quest=${targetRaw}`,
+                            `https://corsproxy.io/?${encodeURIComponent(targetRaw)}`,
+                            `https://thingproxy.freeboard.io/fetch/${targetRaw}`
                         ];
                         for (let url of proxies) {
                             try {
@@ -582,7 +585,13 @@
                     // SERVIDORES YAGA PADRÃO
                     let htmlRaw = null;
                     try {
-                        const proxies = [`https://api.codetabs.com/v1/proxy/?quest=https://${serverName}.yaga.host`, `https://corsproxy.io/?https://${serverName}.yaga.host`];
+                        const targetRaw = `https://${serverName}.yaga.host`;
+                        const proxies = [
+                            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetRaw)}`,
+                            `https://api.codetabs.com/v1/proxy/?quest=${targetRaw}`,
+                            `https://corsproxy.io/?${encodeURIComponent(targetRaw)}`,
+                            `https://thingproxy.freeboard.io/fetch/${targetRaw}`
+                        ];
                         for (let url of proxies) { try { const res = await fetch(url); if (res.ok) { htmlRaw = await res.text(); break; } } catch(e) {} }
                         if (!htmlRaw) throw new Error("Acesso bloqueado por WAF.");
                         const match = htmlRaw.match(/window\.sheetData\s*=\s*(\{[\s\S]+?\});/);
@@ -879,11 +888,26 @@
                 this.waterGridBuilt = false;
                 const loadWithCORS = (img, url) => {
                     img.crossOrigin = "Anonymous";
-                    const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${url}`;
-                    const backupProxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                    const proxies = [
+                        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                        `https://api.codetabs.com/v1/proxy/?quest=${url}`,
+                        `https://corsproxy.io/?${encodeURIComponent(url)}`,
+                        `https://thingproxy.freeboard.io/fetch/${url}`
+                    ];
+                    let currentProxyIdx = 0;
+
                     img.onload = () => { this.scheduleRender(); };
-                    img.onerror = () => { if (img.src !== backupProxy) img.src = backupProxy; else console.error(`[CORS] Erro ao carregar: ${url}`); };
-                    img.src = proxyUrl;
+                    img.onerror = () => { 
+                        currentProxyIdx++;
+                        if (currentProxyIdx < proxies.length) {
+                            img.src = proxies[currentProxyIdx];
+                        } else {
+                            console.error(`[CORS] Erro ao carregar imagem após tentar todos os proxies: ${url}`);
+                        }
+                    };
+                    
+                    // Inicia com o primeiro proxy da lista
+                    img.src = proxies[currentProxyIdx];
                 };
 
                 if (serverName.toLowerCase() === 'defiance') {
