@@ -538,10 +538,10 @@
                     try {
                         const targetRaw = 'https://wurmmaps.xyz/assets/php/marker_read.php?server=defiance';
                         const proxies = [
+                            `https://corsproxy.org/?${encodeURIComponent(targetRaw)}`,
                             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetRaw)}`,
-                            `https://api.codetabs.com/v1/proxy/?quest=${targetRaw}`,
-                            `https://corsproxy.io/?${encodeURIComponent(targetRaw)}`,
-                            `https://thingproxy.freeboard.io/fetch/${targetRaw}`
+                            `https://cors-proxy.fringe.zone/${targetRaw}`,
+                            `https://api.codetabs.com/v1/proxy/?quest=${targetRaw}`
                         ];
                         for (let url of proxies) {
                             try {
@@ -587,10 +587,10 @@
                     try {
                         const targetRaw = `https://${serverName}.yaga.host`;
                         const proxies = [
+                            `https://corsproxy.org/?${encodeURIComponent(targetRaw)}`,
                             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetRaw)}`,
-                            `https://api.codetabs.com/v1/proxy/?quest=${targetRaw}`,
-                            `https://corsproxy.io/?${encodeURIComponent(targetRaw)}`,
-                            `https://thingproxy.freeboard.io/fetch/${targetRaw}`
+                            `https://cors-proxy.fringe.zone/${targetRaw}`,
+                            `https://api.codetabs.com/v1/proxy/?quest=${targetRaw}`
                         ];
                         for (let url of proxies) { try { const res = await fetch(url); if (res.ok) { htmlRaw = await res.text(); break; } } catch(e) {} }
                         if (!htmlRaw) throw new Error("Acesso bloqueado por WAF.");
@@ -886,14 +886,18 @@
             loadAssets(serverName) {
                 this.waterGridAttempted = false;
                 this.waterGridBuilt = false;
+                
                 const loadWithCORS = (img, url) => {
                     img.crossOrigin = "Anonymous";
+                    
+                    const cleanUrl = url.replace(/^https?:\/\//, '');
                     const proxies = [
+                        `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&output=png`,
+                        `https://corsproxy.org/?${encodeURIComponent(url)}`,
                         `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-                        `https://api.codetabs.com/v1/proxy/?quest=${url}`,
-                        `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                        `https://thingproxy.freeboard.io/fetch/${url}`
+                        `https://api.codetabs.com/v1/proxy/?quest=${url}`
                     ];
+                    
                     let currentProxyIdx = 0;
 
                     img.onload = () => { this.scheduleRender(); };
@@ -902,11 +906,10 @@
                         if (currentProxyIdx < proxies.length) {
                             img.src = proxies[currentProxyIdx];
                         } else {
-                            console.error(`[CORS] Erro ao carregar imagem após tentar todos os proxies: ${url}`);
+                            console.error(`[CORS] Erro final ao carregar imagem em todos os proxies: ${url}`);
                         }
                     };
                     
-                    // Inicia com o primeiro proxy da lista
                     img.src = proxies[currentProxyIdx];
                 };
 
